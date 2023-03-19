@@ -1,0 +1,68 @@
+[project]
+name = "pyodb"
+version = "0.1.0"
+authors = [
+  { name="Nikolas Teuschl", email="nikolas.teuschl@alpha-origin.biz" },
+]
+description = "Python Object DataBase (PyODB) is an ORM library aiming to be as simple to use as possible."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/NeoSecundus/PyODB"
+"Bug Tracker" = "https://github.com/NeoSecundus/PyODB/issues"
+
+[tool.ruff]
+# Which types of errors to include
+select = [
+    "F", # Pyflakes
+    "E", # PyCodestyle Errors
+    "W", # PyCodestyle Warnings
+    "I", # isort conventions (Import sorting)
+    "N", # PEP8 Naming Conventions
+    "PLC", # Pylint Conventions
+    "PLE", # Pylint Errors
+    "PLR", # Pylint Refactors
+    "PLW", # Pylint Warnings
+    "RUF", # Ruff specific errors
+    ]
+
+ignore = ["N818", "PLR2004", "E701", "RUF005"]
+line-length = 100
+force-exclude = true
+exclude = [
+    ".git",
+    ".vscode",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "scripts",
+    "playground",
+    "docs",
+    "*test*"
+]
+respect-gitignore = true
+format = "text"
+
+[tool.ruff.per-file-ignores]
+"*items.py" = ["N805", "N815"]
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.ruff.pylint]
+max-args = 6
+max-returns = 4
+
+[tool.ruff.pycodestyle]
+ignore-overlong-task-comments = true
+max-doc-length = 100

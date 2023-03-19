@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:osb="http://www.openswatchbook.org/uri/2009/osb"
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="500"
+   height="500"
+   viewBox="0 0 132.29169 132.29167"
+   version="1.1"
+   id="svg8"
+   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)"
+   sodipodi:docname="Logo.svg"
+   inkscape:export-filename="S:\MyLib\Projects\Programs\PyODB\res\img\Logo.png"
+   inkscape:export-xdpi="49.151997"
+   inkscape:export-ydpi="49.151997">
+  <title
+     id="title835">PyODB Logo</title>
+  <defs
+     id="defs2">
+    <linearGradient
+       id="linearGradient856"
+       osb:paint="gradient">
+      <stop
+         style="stop-color:#42ac43;stop-opacity:1;"
+         offset="0"
+         id="stop852" />
+      <stop
+         style="stop-color:#42ac43;stop-opacity:0;"
+         offset="1"
+         id="stop854" />
+    </linearGradient>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="2.8"
+     inkscape:cx="437.39317"
+     inkscape:cy="183.4555"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     inkscape:document-rotation="0"
+     showgrid="true"
+     units="px"
+     width="49px"
+     scale-x="1"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="3440"
+     inkscape:window-height="1351"
+     inkscape:window-x="-9"
+     inkscape:window-y="1341"
+     inkscape:window-maximized="1"
+     inkscape:snap-global="true"
+     inkscape:snap-smooth-nodes="true"
+     inkscape:snap-nodes="true">
+    <inkscape:grid
+       type="xygrid"
+       id="grid833"
+       spacingx="1.0583334"
+       dotted="false"
+       spacingy="1.0583334"
+       color="#3f3fff"
+       opacity="0.10196078"
+       empcolor="#3f3fff"
+       empopacity="0.16078431" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>PyODB Logo</dc:title>
+        <dc:date>19.03.2023</dc:date>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>NeoSecundus</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <cc:license
+           rdf:resource="" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       id="g2034"
+       transform="matrix(1.0662754,0,0,1.0221448,-8.9640213,-0.89792964)"
+       style="fill:#dc8c00;fill-opacity:1;stroke:#000000;stroke-opacity:1;stroke-width:0.57472534;stroke-miterlimit:4;stroke-dasharray:none">
+      <path
+         id="path1857-8"
+         style="fill:#dc8c00;fill-opacity:1;stroke:#000000;stroke-width:0.57472534;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="m 44.450003,53.975003 c 0,5.291667 49.741672,5.291667 49.741672,0 v 10.583334 c 0,5.291667 -49.741672,5.291667 -49.741672,0 z"
+         sodipodi:nodetypes="ccccc" />
+      <path
+         id="path1857-8-0"
+         style="fill:#dc8c00;fill-opacity:1;stroke:#000000;stroke-width:0.57472534;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="m 44.450003,66.675004 c 0,5.291667 49.741672,5.291667 49.741672,0 v 10.583334 c 0,5.291667 -49.741672,5.291667 -49.741672,0 z"
+         sodipodi:nodetypes="ccccc" />
+      <path
+         id="path1857-8-08"
+         style="fill:#dc8c00;fill-opacity:1;stroke:#000000;stroke-width:0.57472534;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="m 44.450001,79.375005 c 0,5.291667 49.741672,5.291667 49.741672,0 v 10.583334 c 0,5.291667 -49.741672,5.291667 -49.741672,0 z"
+         sodipodi:nodetypes="ccccc" />
+      <path
+         id="path1857"
+         style="fill:#dc8c00;fill-opacity:1;stroke:#000000;stroke-width:0.574725;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="m 44.450003,41.275003 c -0.31129,-6.228176 50.308844,-6.228176 49.74167,0 0.567174,6.196679 -50.05296,6.196679 -49.74167,0 z m 49.74167,0 v 10.583334 c 0,5.291667 -49.74167,5.291667 -49.74167,0 V 41.340373"
+         sodipodi:nodetypes="ccccccc" />
+    </g>
+    <path
+       style="fill:#780064;stroke-width:0.631;fill-opacity:1;stroke:#000000;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
+       d="M 54.905731,130.9712 C 29.742968,127.78096 11.880228,113.26979 4.2495386,89.819566 1.0990636,80.1377 -0.10772091,67.824808 1.2706108,59.425406 1.8617165,55.823269 4.4844533,47.003444 4.9645085,47.003444 c 0.1743592,0 0.8998285,1.088278 1.6121541,2.418395 2.321987,4.335815 7.7187084,7.91504 12.8402054,8.515897 l 2.537035,0.297652 -0.269906,5.640881 c -0.964354,20.154464 11.480214,35.66111 32.764794,40.826831 6.80324,1.65112 16.96175,1.65048 22.838503,-0.002 7.20898,-2.02642 12.192262,-4.951243 17.664655,-10.367852 3.911411,-3.871534 5.250171,-5.631325 7.053361,-9.271573 3.34666,-6.756204 4.11617,-10.179015 4.09986,-18.236499 -0.0165,-8.108291 -1.13085,-12.800706 -4.61645,-19.437448 C 98.835667,42.336314 92.933231,35.921911 88.020125,32.751004 78.392455,26.537332 65.438041,24.441963 54.579483,27.342002 l -3.409047,0.910467 -0.407184,4.485994 C 49.936474,41.847102 46.63967,45.567619 35.098902,50.41603 23.912226,55.115683 18.359094,55.096669 13.018776,50.34043 9.9448213,47.602673 8.2145661,43.67612 8.2145661,39.437992 c 0,-3.157991 4.3101439,-18.732442 5.8788629,-21.242925 2.801439,-4.483254 7.189296,-7.137858 13.598025,-8.2266534 2.149025,-0.3651048 5.434862,-1.4712889 7.737392,-2.6048124 8.30585,-4.0889301 16.726726,-6.1928975 26.680664,-6.66620248 28.605277,-1.36016741 55.16604,15.91562228 65.64064,42.69433328 4.8572,12.417644 5.56437,28.657539 1.80953,41.554612 -7.24897,24.898446 -29.11373,42.819146 -56.230294,46.087206 -5.27871,0.63619 -13.123387,0.60963 -18.423655,-0.0623 z M 33.990808,43.576562 c 2.078194,-0.860156 2.953845,-2.536798 1.950398,-3.734504 -0.842747,-1.005895 -2.182207,-0.969892 -4.490947,0.120712 -2.088902,0.986758 -2.84873,2.461863 -1.869908,3.630179 0.817178,0.975377 2.02514,0.970889 4.410457,-0.01638 z M 19.616194,34.006757 c 0.449156,-0.170737 1.222654,-1.521317 1.718891,-3.00129 0.892672,-2.662296 0.889603,-2.701005 -0.288941,-3.646356 -1.604159,-1.286752 -3.010484,-0.50529 -3.733826,2.074802 -0.778342,2.776256 -0.698822,3.693423 0.373883,4.31234 1.13952,0.657463 0.952218,0.632183 1.929993,0.260504 z"
+       id="path858" />
+  </g>
+</svg>
