@@ -23,5 +23,5 @@ repos:
             [
             "-q",
             "--config",
-            "./src/common/pyproject.toml"
+            "./pyproject.toml"
         ]

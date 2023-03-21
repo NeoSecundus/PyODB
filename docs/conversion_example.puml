@@ -1,0 +1,92 @@
+@startuml conversion_example
+
+skinparam {
+    DefaultFontName monospaced
+    BackgroundColor #ffffff80
+    ClassStereotypeFontStyle bold
+    ClassFontStyle bold
+    TitleFontSize 16
+}
+
+package "Python Classes" as Python #cfc {
+    class Car {
+        + brand: str
+        + model: str
+        + motor: Motor
+        + build_date: Date
+        - _passengers: list[str]
+    }
+
+    class Ship {
+        + name: str
+        + fuel_capacity: float
+        - _motors: dict[str, Motor]
+    }
+
+    class AirPlane {
+        + name
+        + motors: list[Motor]
+    }
+
+    class Motor {
+        + ps:     float
+        + ccm:    int
+        + fuel:   str
+        + brand:  str
+        - _price: float | None
+    }
+
+    Motor -right-|> Car
+    Motor --|> Ship
+    Motor --|> AirPlane
+}
+
+package "SQL Tables" as SQL #ffc {
+    interface "Car" as TCar {
+        _id_ TEXT
+        _children_ TEXT
+            ^'{"motor": "Motor"}'
+        ..
+        brand TEXT
+        model TEXT
+        build_date NUMERIC
+        _passengers TEXT
+    }
+
+    interface "Ship" as TShip {
+        _id_ TEXT
+        _children_ TEXT
+            ^'{"_motors": "dMotor"}'
+        ..
+        name TEXT
+        fuel_capacity REAL
+    }
+
+    interface "AirPlane" as TAirPlane {
+        _id_ TEXT
+        _children_ TEXT
+            ^'{"motors": "lMotor"}'
+        ..
+        name TEXT
+    }
+
+    interface "Motor" as TMotor {
+        _id_     TEXT
+        _parent_ TEXT | NULL
+        _key_    TEXT | NULL
+        ..
+        ps       REAL
+        ccm      INTEGER
+        fuel     TEXT
+        brand    TEXT
+        _price   REAL | NULL
+    }
+
+    TMotor -right-# TCar
+    TMotor --# TShip
+    TMotor --# TAirPlane
+}
+
+Python -[thickness=3]up-> SQL
+
+@enduml
