@@ -12,7 +12,7 @@ class Table:
     # BLOB = binary or undefined type
 
     def __init__(self, base_type: type) -> None:
-        self._members: dict[str, type] = {}
+        self._members: dict[str, list[type]] = {}
         self.base_type = base_type
 
 
@@ -23,7 +23,10 @@ class Table:
             name (str): Name of the member (field name)
             type_ (type): Member's datatype
         """
-        self._members[name] = type_
+        if name in self._members:
+            self._members[name] += [type_]
+        else:
+            self._members[name] = [type_]
 
 
     def insert(self, obj: object):
@@ -43,4 +46,4 @@ class Table:
 
 
     def __repr__(self) -> str:
-        return f"{self.base_type.__name__}: { {k: t.__name__ for k, t in self._members.items()} }"
+        return f"{self.base_type.__name__}: { {k: [t.__name__ for t in l] for k, l in self._members.items()} }"

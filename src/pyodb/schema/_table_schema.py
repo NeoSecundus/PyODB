@@ -1,5 +1,13 @@
 from src.pyodb.schema._table import Table
 
+PRIMITIVES = [
+    int, float, complex,
+    bool, str, None,
+    list, tuple, range,
+    bytes, bytearray, memoryview,
+    set, frozenset, dict,
+]
+
 
 class TableSchema:
     _tables: dict[type, Table] = {}
