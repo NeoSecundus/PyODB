@@ -6,7 +6,7 @@ authors = [
 ]
 description = "Python Object DataBase (PyODB) is an ORM library aiming to be as simple to use as possible."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.6"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",

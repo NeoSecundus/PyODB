@@ -50,7 +50,6 @@ package "SQL Tables" as SQL #ffc {
         brand TEXT
         model TEXT
         build_date NUMERIC
-        _passengers TEXT
     }
 
     interface "Ship" as TShip {

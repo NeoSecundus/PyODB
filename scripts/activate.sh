@@ -20,8 +20,8 @@ fi
 export PYTHONPATH="$BASEDIR"
 
 # Creating aliases
-alias odb-lint="ruff --config $BASEDIR/src/common/pyproject.toml $BASEDIR"
-alias odb-test="python -m pytest --cov='./src/service' --cov='./src/common' --cov-report='xml' --cov-report='html' $BASEDIR/test"
+alias odb-lint="ruff --config $BASEDIR/pyproject.toml $BASEDIR"
+alias odb-test="python -m pytest --cov='./src' --cov-report='html' $BASEDIR/test"
 alias odb-profile='python3 -m cProfile -o profiler/results_$(date +%y%m%d-%H%M).prof '
 alias odb-mem-profile='memray run -f -o profiler/mem_profile_$(date +%y%m%d-%H%M).bin '
 alias odb-docs="pdoc -o docs/module_docs/ -d google --logo $BASEDIR/res/img/Logo.png --favicon $BASEDIR/res/img/Logo.png src"

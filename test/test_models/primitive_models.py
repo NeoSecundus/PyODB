@@ -8,16 +8,24 @@ def _get_random_text(limit: int = 100) -> str:
 
 class PrimitiveBasic:
     integer: int
-    number: float
+    number: float | None
     text: str
     truth: bool
     _private: float
     classmember: str = "cm"
 
 
+    @property
+    def prop_number(self) -> float | None:
+        if self.number:
+            return self.number * self._private
+        else:
+            return None
+
+
     def __init__(self) -> None:
         self.integer = randint(-1000, 1000)
-        self.number = (random()-0.5) * 2000
+        self.number = None if randint(0, 1) == 1 else (random()-0.5) * 2000
         self.text = _get_random_text()
         self.truth = randint(0, 1) == 1
         self._private = random()
@@ -27,9 +35,29 @@ class PrimitiveBasic:
         return self.text
 
 
-    @property
-    def private(self):
-        return self._private
+    @staticmethod
+    def get_create_table_sql() -> str:
+        return "CREATE TABLE pyodb_test_test_models_primitive_models_PrimitiveBasic (\
+_uid_ TEXT PRIMARY KEY,_members_ TEXT,_parent_ TEXT,_pickle_ BLOB NOT NULL,\
+integer INTEGER NOT NULL,number REAL,text TEXT NOT NULL,truth INTEGER NOT NULL,\
+_private REAL NOT NULL,classmember TEXT NOT NULL);"
+
+
+    @staticmethod
+    def get_drop_table_sql() -> str:
+        return "DROP TABLE pyodb_test_test_models_primitive_models_PrimitiveBasic;"
+
+
+    @staticmethod
+    def get_members() -> dict:
+        return {
+            "integer": int,
+            "number": float | None,
+            "text": str,
+            "truth": bool,
+            "_private": float,
+            "classmember": str
+        }
 
 
     def __repr__(self) -> str:
@@ -38,6 +66,8 @@ class PrimitiveBasic:
 
 class PrimitiveContainer:
     listing: list[int | float | str | bool]
+    pset: set[int | float | str | bool]
+    ptuple: tuple[int | float | str | bool]
     dictionary: dict[str, int | float | str | bool]
 
 
@@ -48,6 +78,14 @@ class PrimitiveContainer:
         self.listing += [_get_random_text() for _ in range(randint(1, 10))]
         self.listing += [randint(0, 1) == 1 for _ in range(randint(1, 10))]
 
+        self.pset = set()
+        self.pset.union([randint(-1000,1000) for _ in range(randint(1, 10))])
+        self.pset.union([(random()-0.5) * 2000 for _ in range(randint(1, 10))])
+        self.pset.union([_get_random_text() for _ in range(randint(1, 10))])
+        self.pset.union([randint(0, 1) == 1 for _ in range(randint(1, 10))])
+
+        self.ptuple = tuple([randint(-10, 10), (random()-0.5) * 20, _get_random_text(), randint(0, 1) == 1])
+
         self.dictionary = {}
         self.dictionary |= {_get_random_text(10): randint(-1000,1000) for _ in range(randint(1, 10))}
         self.dictionary |= {_get_random_text(10): (random()-0.5) * 2000 for _ in range(randint(1, 10))}
@@ -57,3 +95,17 @@ class PrimitiveContainer:
 
     def __repr__(self) -> str:
         return f"PrimitiveContainer:\n{self.listing}\n{self.dictionary}"
+
+
+    @staticmethod
+    def get_members() -> dict:
+        return {
+            "listing": list,
+            "pset": set,
+            "ptuple": tuple,
+            "dictionary": dict,
+        }
+
+
+class PrimitiveIllegal:
+    illegal: int | float
