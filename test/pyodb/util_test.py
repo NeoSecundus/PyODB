@@ -1,13 +1,16 @@
 import logging
 from unittest import TestCase
 import re
+from pathlib import Path
 
 from src.pyodb._util import create_logger, generate_uid
 
 
 class UtilTest(TestCase):
     def test_logger_creation(self):
-        logger = create_logger(".pyodb", logging.INFO, True)
+        folder = Path(".pyodb")
+        folder.mkdir(755, exist_ok=True)
+        logger = create_logger(folder.as_posix(), logging.INFO, True)
         self.assertEqual(logger.level, logging.INFO)
         self.assertEqual(len(logger.handlers), 2)
 
