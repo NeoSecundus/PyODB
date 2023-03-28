@@ -1,6 +1,6 @@
 from random import randint
 from typing import Any
-from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer, PrimitiveIllegal
+from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer, PrimitiveIllegal1
 
 
 class ComplexBasic:
@@ -42,7 +42,7 @@ class ComplexMulti:
 
 class ComplexContainer:
     complex_list: list[PrimitiveBasic]
-    complex_dict: dict[str, PrimitiveBasic]
+    complex_dict: dict[str, PrimitiveBasic | None]
     multicomplex_dict: dict[str, PrimitiveBasic | PrimitiveContainer]
 
     def __init__(self) -> None:
@@ -61,19 +61,20 @@ class ComplexContainer:
     @staticmethod
     def get_members() -> dict:
         return {
-            "complex_list": list,
-            "complex_dict": dict,
-            "multicomplex_dict": dict
+            "complex_list":  list[PrimitiveBasic],
+            "complex_dict": dict[str, PrimitiveBasic | None],
+            "multicomplex_dict": dict[str, PrimitiveBasic | PrimitiveContainer]
         }
 
 
 class ComplexIllegal1:
     illegal: PrimitiveBasic | str
 
-
 class ComplexIllegal2:
-    illegal: PrimitiveIllegal
-
+    illegal: PrimitiveIllegal1
 
 class ComplexIllegal3:
     illegal: Any
+
+class ComplexIllegal4:
+    illegal: list[str | PrimitiveBasic]

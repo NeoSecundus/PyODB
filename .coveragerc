@@ -2,3 +2,4 @@
 omit =
     */test/*
     */playground/*
+    */__init__.py

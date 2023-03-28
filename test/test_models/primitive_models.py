@@ -37,15 +37,15 @@ class PrimitiveBasic:
 
     @staticmethod
     def get_create_table_sql() -> str:
-        return "CREATE TABLE pyodb_test_test_models_primitive_models_PrimitiveBasic (\
-_uid_ TEXT PRIMARY KEY,_members_ TEXT,_parent_ TEXT,_pickle_ BLOB NOT NULL,\
+        return "CREATE TABLE test_test_models_primitive_models_PrimitiveBasic (\
+_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_container_ TEXT,\
 integer INTEGER NOT NULL,number REAL,text TEXT NOT NULL,truth INTEGER NOT NULL,\
 _private REAL NOT NULL,classmember TEXT NOT NULL);"
 
 
     @staticmethod
     def get_drop_table_sql() -> str:
-        return "DROP TABLE pyodb_test_test_models_primitive_models_PrimitiveBasic;"
+        return "DROP TABLE test_test_models_primitive_models_PrimitiveBasic;"
 
 
     @staticmethod
@@ -67,7 +67,7 @@ _private REAL NOT NULL,classmember TEXT NOT NULL);"
 class PrimitiveContainer:
     listing: list[int | float | str | bool]
     pset: set[int | float | str | bool]
-    ptuple: tuple[int | float | str | bool]
+    ptuple: tuple[int | float | str | bool] | None
     dictionary: dict[str, int | float | str | bool]
 
 
@@ -100,12 +100,29 @@ class PrimitiveContainer:
     @staticmethod
     def get_members() -> dict:
         return {
-            "listing": list,
-            "pset": set,
-            "ptuple": tuple,
-            "dictionary": dict,
+            "listing": list[int | float | str | bool],
+            "pset": set[int | float | str | bool],
+            "ptuple": tuple[int | float | str | bool] | None,
+            "dictionary": dict[str, int | float | str | bool],
         }
 
+    @staticmethod
+    def get_create_table_sql() -> str:
+        return "CREATE TABLE test_test_models_primitive_models_PrimitiveContainer (\
+_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_container_ TEXT,\
+listing TEXT NOT NULL,pset TEXT NOT NULL,ptuple TEXT,dictionary TEXT NOT NULL);"
 
-class PrimitiveIllegal:
+
+    @staticmethod
+    def get_drop_table_sql() -> str:
+        return "DROP TABLE test_test_models_primitive_models_PrimitiveContainer;"
+
+
+class PrimitiveIllegal1:
     illegal: int | float
+
+class PrimitiveIllegal2:
+    illegal: dict[str, dict]
+
+class PrimitiveIllegal3:
+    illegal: list[str | int | set]

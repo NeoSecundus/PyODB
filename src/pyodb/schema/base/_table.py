@@ -2,7 +2,7 @@
 statements.
 Including create and remove table statements in case the fields contained by a class were changed.
 """
-from types import UnionType
+from types import GenericAlias, UnionType
 
 # SQLITE3 Available Data Types:
 # TEXT = str, list, dict
@@ -22,10 +22,8 @@ PRIMITIVE_MAPPINGS: dict[type | UnionType, str] = {
     dict: "TEXT NOT NULL",
     list: "TEXT NOT NULL",
     tuple: "TEXT NOT NULL",
-    range: "TEXT NOT NULL",
     bytes: "BLOB NOT NULL",
     bytearray: "BLOB NOT NULL",
-    memoryview: "BLOB NOT NULL",
     int | None: "INTEGER",
     float | None: "REAL",
     complex | None: "TEXT",
@@ -36,10 +34,8 @@ PRIMITIVE_MAPPINGS: dict[type | UnionType, str] = {
     dict | None: "TEXT",
     list | None: "TEXT",
     tuple | None: "TEXT",
-    range | None: "TEXT",
     bytes | None: "BLOB",
     bytearray | None: "BLOB",
-    memoryview | None: "BLOB",
 }
 PRIMITIVES = list(PRIMITIVE_MAPPINGS.keys())
 
@@ -50,18 +46,18 @@ class Table:
         "_parent_": str | None,
         "_pickle_": bytes
     }
-    _members: dict[str, type | UnionType]
+    _members: dict[str, type | UnionType | GenericAlias]
     base_type: type
     is_parent: bool
 
 
     def __init__(self, base_type: type, is_parent: bool = False) -> None:
-        self._members: dict[str, type | UnionType] = {}
+        self._members = {}
         self.base_type = base_type
         self.is_parent = is_parent
 
 
-    def add_member(self, name: str, type_: type | UnionType):
+    def add_member(self, name: str, type_: type | UnionType | GenericAlias):
         """Adds a new member to the internal members
 
         Args:
@@ -72,7 +68,7 @@ class Table:
 
 
     @property
-    def members(self) -> dict[str, type | UnionType]:
+    def members(self) -> dict[str, type | UnionType | GenericAlias]:
         return self._members
 
 
@@ -82,37 +78,21 @@ class Table:
 
 
     def create_table_sql(self) -> str:
-        sql = f"CREATE TABLE pyodb_{self.base_name} (_uid_ TEXT PRIMARY KEY,_members_ TEXT,\
-_parent_ TEXT,_pickle_ BLOB NOT NULL,"
+        sql = f"CREATE TABLE {self.base_name} (_uid_ TEXT PRIMARY KEY,_parent_ TEXT,\
+_parent_table_ TEXT,_container_ TEXT,"
         for name, type_ in self.members.items():
-            if type_ in PRIMITIVES:
+            if isinstance(type_, (type, UnionType)) and type_ in PRIMITIVES:
                 sql += f"{name} {PRIMITIVE_MAPPINGS[type_]},"
+            elif isinstance(type_, GenericAlias):
+                sql += f"{name} {PRIMITIVE_MAPPINGS[type_.__origin__]},"
+            else:
+                sql += f"{name} TEXT,"
 
         return sql[:-1] + ");"
 
 
     def drop_table_sql(self) -> str:
-        return f"DROP TABLE pyodb_{self.base_name};"
-
-
-    def insert(self, obj: object):
-        if not isinstance(obj, self.base_type):
-            raise TypeError("Passed object must have same type as table's base-type")
-
-
-    def delete(self, obj: object):
-        if not isinstance(obj, self.base_type):
-            raise TypeError("Passed object must have same type as table's base-type")
-
-
-    def select(self, obj: object):
-        if not isinstance(obj, self.base_type):
-            raise TypeError("Passed object must have same type as table's base-type")
-
-
-    def update(self, obj: object):
-        if not isinstance(obj, self.base_type):
-            raise TypeError("Passed object must have same type as table's base-type")
+        return f"DROP TABLE {self.base_name};"
 
 
     def __repr__(self) -> str:
