@@ -32,9 +32,14 @@ jobs:
         python -m ruff --config pyproject.toml .
     - name: Test with pytest
       run: |
-        python -m pytest test --junitxml="test_result.xml"
+        python -m pytest --cov test --junitxml="test_result.xml"
     - name: Generate Test Summary
       uses: test-summary/action@v2
       with:
         paths: "test_result.xml"
       if: always()
+    - name: Upload coverage reports to Codecov
+      run: |
+        curl -Os https://uploader.codecov.io/latest/linux/codecov
+        chmod +x codecov
+        ./codecov -t ${CODECOV_TOKEN}
