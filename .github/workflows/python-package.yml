@@ -32,7 +32,7 @@ jobs:
         python -m ruff --config pyproject.toml .
     - name: Test with pytest
       run: |
-        python -m pytest --cov test --junitxml="test_result.xml"
+        python -m pytest --cov=./ test --junitxml="test_result.xml"
     - name: Generate Test Summary
       uses: test-summary/action@v2
       with:
