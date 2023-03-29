@@ -2,17 +2,15 @@
 """
 import logging
 from pathlib import Path
-from types import UnionType
 
 from src.pyodb._util import create_logger
-from src.pyodb.schema._base_schema import BaseSchema
 from src.pyodb.schema._shard_schema import ShardSchema
 from src.pyodb.schema._unified_schema import UnifiedSchema
 
 
 class PyODB:
     logger: logging.Logger | None
-    _schema: BaseSchema
+    _schema: ShardSchema | UnifiedSchema
     persistent: bool
 
 
@@ -81,9 +79,5 @@ class PyODB:
             self.logger.debug(f"Saving object of type {obj_type}")
 
         if not self._schema.is_known_type(obj_type):
-            self._schema.add_type(type(obj))
-        self._save_object(obj, obj_type)
-
-
-    def _save_object(self, obj: object, obj_type: type | UnionType):
-        pass
+            self._schema.add_type(obj_type)
+        self._schema.insert(obj)

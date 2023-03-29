@@ -1,15 +1,8 @@
 from types import GenericAlias, NoneType, UnionType
 from typing import Any
 
-from src.pyodb.schema.base._table import PRIMITIVES, Table
-
-
-class DBOperator:
-    pass
-
-
-class Assembler:
-    pass
+from src.pyodb.schema.base._sql_builders import BASE_TYPES
+from src.pyodb.schema.base._table import Table
 
 
 class Disassembler:
@@ -17,32 +10,9 @@ class Disassembler:
 
 
     @classmethod
-    def _disassemble_generic_alias(cls, base_type: GenericAlias, depth: int) -> list[Table]:
-        tables = []
-        for subtypes in base_type.__args__:
-            subtypes = subtypes.__args__ if isinstance(subtypes, UnionType) else [subtypes] # noqa
-
-            if any([t in (dict, list, set, tuple, frozenset) for t in subtypes]):
-                raise RecursionError("Cannot have recursive sequences and dicts")
-
-            are_primitives = [t in PRIMITIVES for t in subtypes]
-            if all(are_primitives):
-                continue
-
-            if any(are_primitives):
-                raise TypeError("Can't mix between primitive and complex types in sequences/dicts")
-
-            for type_ in subtypes:
-                if type_ is NoneType:
-                    continue
-                tables += cls.disassemble_type(type_, depth+1)
-        return tables
-
-
-    @classmethod
     def _disassemble_union_type(cls, type_: UnionType, depth: int) -> list[Table]:
         tables = []
-        if any([t in PRIMITIVES for t in type_.__args__]):
+        if any([t in BASE_TYPES for t in type_.__args__]):
             raise TypeError(
                 f"Cannot save object with mixed primitive and custom type annotations \
 or multiple primitives! Got: {type_}"
@@ -52,7 +22,7 @@ or multiple primitives! Got: {type_}"
                 continue
 
             if isinstance(t, GenericAlias):
-                tables += cls._disassemble_generic_alias(t, depth)
+                continue
             else:
                 tables += cls.disassemble_type(t, depth+1)
         return tables
@@ -69,7 +39,7 @@ or multiple primitives! Got: {type_}"
         if not isinstance(obj_type, type):
             raise TypeError("Passed argument must be a type!")
 
-        if obj_type in PRIMITIVES:
+        if obj_type in BASE_TYPES:
             raise TypeError("Object type to disassemble cannot be a primitive type")
         tables = [Table(obj_type)]
 
@@ -82,12 +52,13 @@ or multiple primitives! Got: {type_}"
 
         for key, type_ in members.items():
             tables[0].add_member(key, type_)
-            if type_ not in PRIMITIVES:
+            if isinstance(type_, GenericAlias):
+                continue
+
+            if type_ not in BASE_TYPES:
                 try:
                     if isinstance(type_, UnionType):
                         tables += cls._disassemble_union_type(type_, depth)
-                    elif isinstance(type_, GenericAlias):
-                        tables += cls._disassemble_generic_alias(type_, depth)
                     else:
                         tables += cls.disassemble_type(type_, depth+1)
                 except RecursionError as err:

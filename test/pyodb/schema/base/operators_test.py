@@ -6,15 +6,12 @@ from test.test_models.primitive_models import (
     PrimitiveBasic,
     PrimitiveContainer,
     PrimitiveIllegal1,
-    PrimitiveIllegal2,
-    PrimitiveIllegal3,
 )
 from test.test_models.complex_models import (
     ComplexBasic,
     ComplexIllegal1,
     ComplexIllegal2,
     ComplexIllegal3,
-    ComplexIllegal4,
     ComplexMulti,
     ComplexContainer,
 )
@@ -89,26 +86,12 @@ class DissassemblerTest(TestCase):
             ComplexIllegal1,
             ComplexIllegal2,
             ComplexIllegal3,
-            ComplexIllegal4,
         ]
 
         for type_ in bad_types:
             print(f"Testing type: {type_}")
             self.assertRaises(
                 TypeError,
-                Disassembler.disassemble_type,
-                type_
-            )
-
-        bad_recursion = [
-            PrimitiveIllegal2,
-            PrimitiveIllegal3
-        ]
-
-        for type_ in bad_recursion:
-            print(f"Testing recursion: {type_}")
-            self.assertRaises(
-                RecursionError,
                 Disassembler.disassemble_type,
                 type_
             )

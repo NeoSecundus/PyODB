@@ -75,6 +75,3 @@ class ComplexIllegal2:
 
 class ComplexIllegal3:
     illegal: Any
-
-class ComplexIllegal4:
-    illegal: list[str | PrimitiveBasic]

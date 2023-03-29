@@ -38,7 +38,7 @@ class PrimitiveBasic:
     @staticmethod
     def get_create_table_sql() -> str:
         return "CREATE TABLE test_test_models_primitive_models_PrimitiveBasic (\
-_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_container_ TEXT,\
+_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,\
 integer INTEGER NOT NULL,number REAL,text TEXT NOT NULL,truth INTEGER NOT NULL,\
 _private REAL NOT NULL,classmember TEXT NOT NULL);"
 
@@ -109,8 +109,8 @@ class PrimitiveContainer:
     @staticmethod
     def get_create_table_sql() -> str:
         return "CREATE TABLE test_test_models_primitive_models_PrimitiveContainer (\
-_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_container_ TEXT,\
-listing TEXT NOT NULL,pset TEXT NOT NULL,ptuple TEXT,dictionary TEXT NOT NULL);"
+_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,\
+listing BLOB NOT NULL,pset BLOB NOT NULL,ptuple BLOB,dictionary BLOB NOT NULL);"
 
 
     @staticmethod
@@ -120,9 +120,3 @@ listing TEXT NOT NULL,pset TEXT NOT NULL,ptuple TEXT,dictionary TEXT NOT NULL);"
 
 class PrimitiveIllegal1:
     illegal: int | float
-
-class PrimitiveIllegal2:
-    illegal: dict[str, dict]
-
-class PrimitiveIllegal3:
-    illegal: list[str | int | set]
