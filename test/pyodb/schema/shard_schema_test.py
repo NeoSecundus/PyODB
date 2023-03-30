@@ -10,8 +10,13 @@ from test.test_models.complex_models import ComplexBasic
 class ShardSchemaTest(TestCase):
     def setUp(self) -> None:
         self.base_path = Path(".pyodb")
-        for file in os.listdir(self.base_path.as_posix()):
-            os.remove(self.base_path / file)
+        self.base_path.mkdir(755, exist_ok=True)
+
+        for c in [ComplexBasic, PrimitiveBasic, PrimitiveContainer]:
+            c: type
+            dbpath = self.base_path / (c.__name__ + ".db")
+            if dbpath.exists():
+                os.remove(dbpath)
         return super().setUp()
 
 

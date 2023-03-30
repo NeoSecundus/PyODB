@@ -1,6 +1,6 @@
 from random import randint
 from typing import Any
-from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer, PrimitiveIllegal1
+from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer, PrimitiveIllegal1, get_random_text
 
 
 class ComplexBasic:
@@ -9,7 +9,7 @@ class ComplexBasic:
     container: PrimitiveContainer
 
     def __init__(self) -> None:
-        self.random_number = randint(-500, 500)
+        self.random_number = randint(-1000000, 1000000)
         self.basic = PrimitiveBasic()
         self.container = PrimitiveContainer()
 
@@ -23,21 +23,37 @@ class ComplexBasic:
         }
 
 
+    def __eq__(self, __o: object) -> bool:
+        if isinstance(__o, ComplexBasic):
+            return (
+                self.random_number ==  __o.random_number
+                and self.basic == __o.basic
+                and self.container == __o.container
+            )
+        return False
+
+
 class ComplexMulti:
-    txt: str | None
+    txt: str
     multi: PrimitiveBasic | PrimitiveContainer
 
     def __init__(self) -> None:
-        self.txt = "Some example text"
+        self.txt = get_random_text(30)
         self.multi = PrimitiveContainer() if randint(0, 1) == 1 else PrimitiveBasic()
 
 
     @staticmethod
     def get_members() -> dict:
         return {
-            "txt": str | None,
+            "txt": str,
             "multi": PrimitiveBasic | PrimitiveContainer
         }
+
+
+    def __eq__(self, __o: object) -> bool:
+        if isinstance(__o, ComplexMulti):
+            return self.txt == __o.txt and self.multi == __o.multi
+        return False
 
 
 class ComplexContainer:

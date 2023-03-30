@@ -11,13 +11,16 @@ class UnifiedSchema(BaseSchema):
 
     def __init__(self, base_path: Path, max_depth: int) -> None:
         self._dbconn = sql.connect((base_path / "pyodb.db").as_posix(), check_same_thread=True)
+        self._dbconn.row_factory = sql.Row
         super().__init__(base_path, max_depth)
 
 
     def add_type(self, base_type: type):
         tables = Disassembler.disassemble_type(base_type)
         for table in tables:
+            if self.is_known_type(table.base_type):
+                continue
+            self._tables[table.base_type] = table
             table.dbconn = self._dbconn
-            if not self.is_known_type(table.base_type):
-                self._tables[table.base_type] = table
+            table.create_table()
         self._tables[base_type].is_parent = True

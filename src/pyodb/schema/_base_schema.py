@@ -3,8 +3,9 @@ from pathlib import Path
 from types import GenericAlias, UnionType
 
 from src.pyodb.schema.base._operators import Disassembler
-from src.pyodb.schema.base._sql_builders import BASE_TYPES, Insert, MultiInsert
+from src.pyodb.schema.base._sql_builders import Delete, Insert, MultiInsert, Select
 from src.pyodb.schema.base._table import Table
+from src.pyodb.schema.base._type_defs import BASE_TYPES
 
 
 class BaseSchema:
@@ -97,7 +98,7 @@ class BaseSchema:
         return None
 
 
-    def insert(self, obj: object, parent: Insert | None = None):
+    def insert(self, obj: object, expires: int | None, parent: Insert | None = None):
         if not self.is_known_type(type(obj)):
             raise TypeError(f"Tried to insert object of unknown type {type(obj)}")
 
@@ -106,19 +107,19 @@ class BaseSchema:
             raise ConnectionError("Table has no valid connection to a database")
 
         if parent:
-            inserter = Insert(table.name, parent.uid, parent.table_name)
+            inserter = Insert(table.fqcn, parent.uid, parent.table_name, expires)
         else:
-            inserter = Insert(table.name, None, None)
+            inserter = Insert(table.fqcn, None, None, expires)
 
         for member in table.members.keys():
             member = getattr(obj, member) # noqa: PLW2901
             inserter.add_val(member)
             if member and type(member) not in BASE_TYPES:
-                self.insert(member, inserter)
+                self.insert(member, expires, inserter)
         inserter.execute(table.dbconn)
 
 
-    def insert_many(self, objs: list):
+    def insert_many(self, objs: list, expires: int | None):
         base_type = type(objs[0])
         if not self.is_known_type(base_type):
             raise TypeError(f"Tried to insert object of unknown type {base_type}")
@@ -126,21 +127,40 @@ class BaseSchema:
         table = self._tables[base_type]
         if not table.dbconn:
             raise ConnectionError("Table has no valid connection to a database")
-        multi_inserter = MultiInsert(table.name)
+        multi_inserter = MultiInsert(table.fqcn)
 
         if any(type(obj) != base_type for obj in objs):
             raise TypeError("Types in inserted list must all be the same!")
 
         for obj in objs:
-            inserter = Insert(table.name, None, None)
+            inserter = Insert(table.name, None, None, expires)
 
             for member in table.members.keys():
                 member = getattr(obj, member) # noqa: PLW2901
                 inserter.add_val(member)
                 if member and type(member) not in BASE_TYPES:
-                    self.insert(member, inserter)
+                    self.insert(member, expires, inserter)
             multi_inserter += inserter
         multi_inserter.execute(table.dbconn)
+
+
+    def select(self, type_: type) -> Select:
+        if self.is_known_type(type_):
+            raise TypeError(f"Tried to select unknown type: {type_}")
+        return Select(type_, self._tables)
+
+
+    def delete(self, type_: type) -> Delete:
+        if self.is_known_type(type_):
+            raise TypeError(f"Tried to delete instance of unknown type: {type_}")
+        return Delete(self._tables[type_].fqcn)
+
+
+    def clear(self):
+        for table in self._tables.values():
+            if not table.dbconn:
+                continue
+            Delete(table.fqcn).delete(table.dbconn)
 
 
     @property

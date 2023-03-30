@@ -5,15 +5,10 @@ Including create and remove table statements in case the fields contained by a c
 import sqlite3 as sql
 from types import GenericAlias, NoneType, UnionType
 
-from src.pyodb.schema.base._sql_builders import BASE_TYPE_MAPPINGS, BASE_TYPES
+from src.pyodb.schema.base._type_defs import BASE_TYPE_SQL_MAP, BASE_TYPES
 
 
 class Table:
-    BASE_MEMBERS = {
-        "_uid_": str,
-        "_parent_": str | None,
-        "_parent_table_": str | None,
-    }
     _members: dict[str, type | UnionType | GenericAlias]
     base_type: type
     is_parent: bool
@@ -44,7 +39,7 @@ class Table:
 
     @property
     def name(self) -> str:
-        return self.fqcn.replace(".", "_")
+        return self.base_type.__name__
 
 
     @property
@@ -70,19 +65,19 @@ class Table:
     def delete_parent_entries(self, parent):
         if not self.dbconn:
             raise ConnectionError("Table has no valid connection to any Database!")
-        self.dbconn.execute(f"DELETE FROM {self.name} WHERE _parent_table_ = '{parent.name}'")
+        self.dbconn.execute(f"DELETE FROM \"{self.fqcn}\" WHERE _parent_table_ = '{parent.name}'")
         self.dbconn.commit()
 
 
     def _create_table_sql(self) -> str:
-        sql = f"CREATE TABLE {self.name} (_uid_ TEXT PRIMARY KEY,_parent_ TEXT,\
-_parent_table_ TEXT,"
+        sql = f"CREATE TABLE \"{self.fqcn}\" (_uid_ TEXT PRIMARY KEY,_parent_ TEXT,\
+_parent_table_ TEXT,_expires_ INTEGER,"
         for name, type_ in self.members.items():
             if isinstance(type_, (GenericAlias, UnionType)):
                 type_ = self._get_base_type(type_) # noqa: PLW2901
 
             if type_ in BASE_TYPES:
-                sql += f"{name} {BASE_TYPE_MAPPINGS[type_]},"
+                sql += f"{name} {BASE_TYPE_SQL_MAP[type_]},"
             else:
                 sql += f"{name} TEXT,"
 
@@ -109,7 +104,7 @@ _parent_table_ TEXT,"
 
 
     def _drop_table_sql(self) -> str:
-        return f"DROP TABLE {self.name};"
+        return f"DROP TABLE \"{self.fqcn}\";"
 
 
     def __repr__(self) -> str:

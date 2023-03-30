@@ -1,16 +1,20 @@
 from random import random, randint, choice
 
-def _get_random_text(limit: int = 100) -> str:
+def get_random_text(limit: int = 100) -> str:
     allowed_chars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789=!\"§$%&/()\\`´\
 #'+*~-_.:,;<>|[]}{^°"
     return "".join(choice(allowed_chars) for _ in range(randint(1, limit)))
 
 
 class PrimitiveBasic:
-    integer: int
-    number: float | None
-    text: str
-    truth: bool
+    __pyodb_members__: dict[str, type] = {
+        "integer": int,
+        "number": float | None,
+        "text": str,
+        "truth": bool,
+        "_private": float
+    }
+
     _private: float
     classmember: str = "cm"
 
@@ -25,8 +29,8 @@ class PrimitiveBasic:
 
     def __init__(self) -> None:
         self.integer = randint(-1000, 1000)
-        self.number = None if randint(0, 1) == 1 else (random()-0.5) * 2000
-        self.text = _get_random_text()
+        self.number = None if randint(0, 2) == 1 else (random()-0.5) * 2000
+        self.text = get_random_text()
         self.truth = randint(0, 1) == 1
         self._private = random()
 
@@ -37,15 +41,15 @@ class PrimitiveBasic:
 
     @staticmethod
     def get_create_table_sql() -> str:
-        return "CREATE TABLE test_test_models_primitive_models_PrimitiveBasic (\
-_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,\
+        return "CREATE TABLE \"test.test_models.primitive_models.PrimitiveBasic\" (\
+_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_expires_ INTEGER,\
 integer INTEGER NOT NULL,number REAL,text TEXT NOT NULL,truth INTEGER NOT NULL,\
-_private REAL NOT NULL,classmember TEXT NOT NULL);"
+_private REAL NOT NULL);"
 
 
     @staticmethod
     def get_drop_table_sql() -> str:
-        return "DROP TABLE test_test_models_primitive_models_PrimitiveBasic;"
+        return "DROP TABLE \"test.test_models.primitive_models.PrimitiveBasic\";"
 
 
     @staticmethod
@@ -55,13 +59,18 @@ _private REAL NOT NULL,classmember TEXT NOT NULL);"
             "number": float | None,
             "text": str,
             "truth": bool,
-            "_private": float,
-            "classmember": str
+            "_private": float
         }
 
 
     def __repr__(self) -> str:
         return f"PrimitiveBasic: {self.integer}, {self.number}, '{self.text}', {self.truth}"
+
+
+    def __eq__(self, __o: object) -> bool:
+        if isinstance(__o, PrimitiveBasic):
+            return all([val == getattr(__o, key) for key, val in vars(self).items()])
+        return False
 
 
 class PrimitiveContainer:
@@ -75,22 +84,22 @@ class PrimitiveContainer:
         self.listing = []
         self.listing += [randint(-1000,1000) for _ in range(randint(1, 10))]
         self.listing += [(random()-0.5) * 2000 for _ in range(randint(1, 10))]
-        self.listing += [_get_random_text() for _ in range(randint(1, 10))]
+        self.listing += [get_random_text() for _ in range(randint(1, 10))]
         self.listing += [randint(0, 1) == 1 for _ in range(randint(1, 10))]
 
         self.pset = set()
         self.pset.union([randint(-1000,1000) for _ in range(randint(1, 10))])
         self.pset.union([(random()-0.5) * 2000 for _ in range(randint(1, 10))])
-        self.pset.union([_get_random_text() for _ in range(randint(1, 10))])
+        self.pset.union([get_random_text() for _ in range(randint(1, 10))])
         self.pset.union([randint(0, 1) == 1 for _ in range(randint(1, 10))])
 
-        self.ptuple = tuple([randint(-10, 10), (random()-0.5) * 20, _get_random_text(), randint(0, 1) == 1])
+        self.ptuple = tuple([randint(-10, 10), (random()-0.5) * 20, get_random_text(), randint(0, 1) == 1])
 
         self.dictionary = {}
-        self.dictionary |= {_get_random_text(10): randint(-1000,1000) for _ in range(randint(1, 10))}
-        self.dictionary |= {_get_random_text(10): (random()-0.5) * 2000 for _ in range(randint(1, 10))}
-        self.dictionary |= {_get_random_text(10): _get_random_text() for _ in range(randint(1, 10))}
-        self.dictionary |= {_get_random_text(10): randint(0, 1) == 1 for _ in range(randint(1, 10))}
+        self.dictionary |= {get_random_text(10): randint(-1000,1000) for _ in range(randint(1, 10))}
+        self.dictionary |= {get_random_text(10): (random()-0.5) * 2000 for _ in range(randint(1, 10))}
+        self.dictionary |= {get_random_text(10): get_random_text() for _ in range(randint(1, 10))}
+        self.dictionary |= {get_random_text(10): randint(0, 1) == 1 for _ in range(randint(1, 10))}
 
 
     def __repr__(self) -> str:
@@ -108,14 +117,20 @@ class PrimitiveContainer:
 
     @staticmethod
     def get_create_table_sql() -> str:
-        return "CREATE TABLE test_test_models_primitive_models_PrimitiveContainer (\
-_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,\
+        return "CREATE TABLE \"test.test_models.primitive_models.PrimitiveContainer\" (\
+_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_expires_ INTEGER,\
 listing BLOB NOT NULL,pset BLOB NOT NULL,ptuple BLOB,dictionary BLOB NOT NULL);"
 
 
     @staticmethod
     def get_drop_table_sql() -> str:
-        return "DROP TABLE test_test_models_primitive_models_PrimitiveContainer;"
+        return "DROP TABLE \"test.test_models.primitive_models.PrimitiveContainer\";"
+
+
+    def __eq__(self, __o: object) -> bool:
+        if isinstance(__o, PrimitiveContainer):
+            return self.listing == __o.listing
+        return False
 
 
 class PrimitiveIllegal1:

@@ -120,22 +120,22 @@ class BaseSchemaTest(TestCase):
             table.dbconn = dbconn
             table.create_table()
 
-        self.schema.insert(ComplexMulti())
-        self.schema.insert(ComplexBasic())
-        self.schema.insert(ComplexBasic())
+        self.schema.insert(ComplexMulti(), None)
+        self.schema.insert(ComplexBasic(), None)
+        self.schema.insert(ComplexBasic(), None)
 
         count: int = dbconn.execute(
-            "SELECT COUNT(*) FROM test_test_models_complex_models_ComplexBasic;"
+            "SELECT COUNT(*) FROM \"test.test_models.complex_models.ComplexBasic\";"
         ).fetchone()[0]
         self.assertEqual(count, 2)
 
         count1: int = dbconn.execute(
-            "SELECT COUNT(*) FROM test_test_models_primitive_models_PrimitiveBasic;"
+            "SELECT COUNT(*) FROM \"test.test_models.primitive_models.PrimitiveBasic\";"
         ).fetchone()[0]
         self.assertIn(count1, (3,2))
 
         count2: int = dbconn.execute(
-            "SELECT COUNT(*) FROM test_test_models_primitive_models_PrimitiveContainer;"
+            "SELECT COUNT(*) FROM \"test.test_models.primitive_models.PrimitiveContainer\";"
         ).fetchone()[0]
         self.assertIn(count2, (3,2))
 
@@ -154,20 +154,20 @@ class BaseSchemaTest(TestCase):
             table.create_table()
 
         cb = [ComplexBasic()]*10
-        self.schema.insert_many(cb)
+        self.schema.insert_many(cb, None)
 
         count: int = dbconn.execute(
-            "SELECT COUNT(*) FROM test_test_models_complex_models_ComplexBasic;"
+            "SELECT COUNT(*) FROM \"test.test_models.complex_models.ComplexBasic\";"
         ).fetchone()[0]
         self.assertEqual(count, 10)
 
         count: int = dbconn.execute(
-            "SELECT COUNT(*) FROM test_test_models_primitive_models_PrimitiveBasic;"
+            "SELECT COUNT(*) FROM \"test.test_models.primitive_models.PrimitiveBasic\";"
         ).fetchone()[0]
         self.assertEqual(count, 10)
 
         count: int = dbconn.execute(
-            "SELECT COUNT(*) FROM test_test_models_primitive_models_PrimitiveContainer;"
+            "SELECT COUNT(*) FROM \"test.test_models.primitive_models.PrimitiveContainer\";"
         ).fetchone()[0]
         self.assertEqual(count, 10)
 
@@ -184,10 +184,10 @@ class BaseSchemaTest(TestCase):
             table.create_table()
 
         self.schema._tables[ComplexBasic].dbconn = None
-        self.assertRaises(ConnectionError, self.schema.insert, ComplexBasic())
-        self.assertRaises(ConnectionError, self.schema.insert_many, [ComplexBasic()])
+        self.assertRaises(ConnectionError, self.schema.insert, ComplexBasic(), None)
+        self.assertRaises(ConnectionError, self.schema.insert_many, [ComplexBasic()], None)
 
         self.schema._tables[ComplexBasic].dbconn = dbconn
-        self.assertRaises(TypeError, self.schema.insert, ComplexContainer())
-        self.assertRaises(TypeError, self.schema.insert_many, [ComplexContainer()])
-        self.assertRaises(TypeError, self.schema.insert_many, [ComplexBasic(), PrimitiveBasic()])
+        self.assertRaises(TypeError, self.schema.insert, ComplexContainer(), None)
+        self.assertRaises(TypeError, self.schema.insert_many, [ComplexContainer()], None)
+        self.assertRaises(TypeError, self.schema.insert_many, [ComplexBasic(), PrimitiveBasic()], None)

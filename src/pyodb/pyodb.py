@@ -6,6 +6,7 @@ from pathlib import Path
 from src.pyodb._util import create_logger
 from src.pyodb.schema._shard_schema import ShardSchema
 from src.pyodb.schema._unified_schema import UnifiedSchema
+from src.pyodb.schema.base._sql_builders import Delete, Select
 
 
 class PyODB:
@@ -73,7 +74,7 @@ class PyODB:
         return self._schema.max_depth
 
 
-    def save_object(self, obj: object):
+    def save_object(self, obj: object, expires: int | None):
         obj_type = type(obj)
         if self._logger:
             self._logger.debug(f"Saving object of type {obj_type}")
@@ -82,4 +83,16 @@ class PyODB:
             if self._logger:
                 self._logger.info(f"Adding new type '{obj_type}'")
             self._schema.add_type(obj_type)
-        self._schema.insert(obj)
+        self._schema.insert(obj, expires)
+
+
+    def select(self, type_: type) -> Select:
+        return self._schema.select(type_)
+
+
+    def delete(self, type_: type) -> Delete:
+        return self._schema.delete(type_)
+
+
+    def clear(self):
+        self._schema.clear()

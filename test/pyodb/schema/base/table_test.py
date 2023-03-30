@@ -26,13 +26,13 @@ class TableTest(TestCase):
 
     def test_repr(self):
         expected = "PrimitiveBasic: {'integer': 'int', 'number': 'float | None', 'text': \
-'str', 'truth': 'bool', '_private': 'float', 'classmember': 'str'}"
+'str', 'truth': 'bool', '_private': 'float'}"
         self.assertEqual(str(self.tpbasic), expected)
 
 
     def test_fqcn(self):
         self.assertEqual(self.tpbasic.fqcn, "test.test_models.primitive_models.PrimitiveBasic")
-        self.assertEqual(self.tpbasic.name, "test_test_models_primitive_models_PrimitiveBasic")
+        self.assertEqual(self.tpbasic.name, "PrimitiveBasic")
 
 
     def test_dbconn_errors(self):
