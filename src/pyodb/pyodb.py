@@ -9,7 +9,7 @@ from src.pyodb.schema._unified_schema import UnifiedSchema
 
 
 class PyODB:
-    logger: logging.Logger | None
+    _logger: logging.Logger | None
     _schema: ShardSchema | UnifiedSchema
     persistent: bool
 
@@ -61,10 +61,10 @@ class PyODB:
         log_folder.mkdir(mode=755, exist_ok=True)
 
         if do_logging:
-            self.logger = create_logger(log_folder.as_posix(), log_level, console_output)
-            self._schema.logger = self.logger
+            self._logger = create_logger(log_folder.as_posix(), log_level, console_output)
+            self._schema.logger = self._logger
         else:
-            self.logger = None
+            self._logger = None
             self._schema.logger = None
 
 
@@ -75,9 +75,11 @@ class PyODB:
 
     def save_object(self, obj: object):
         obj_type = type(obj)
-        if self.logger:
-            self.logger.debug(f"Saving object of type {obj_type}")
+        if self._logger:
+            self._logger.debug(f"Saving object of type {obj_type}")
 
         if not self._schema.is_known_type(obj_type):
+            if self._logger:
+                self._logger.info(f"Adding new type '{obj_type}'")
             self._schema.add_type(obj_type)
         self._schema.insert(obj)
