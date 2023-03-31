@@ -10,7 +10,7 @@ from src.pyodb.schema.base._type_defs import BASE_TYPES, CONTAINERS, PRIMITIVES
 
 class Assembler:
     @classmethod
-    def _get_base_type(cls, type_: UnionType | GenericAlias) -> type:
+    def get_base_type(cls, type_: UnionType | GenericAlias) -> type:
         if isinstance(type_, UnionType):
             args = type_.__args__
             subtype = args[0] if not isinstance(args[0], NoneType) else args[1]
@@ -33,7 +33,7 @@ class Assembler:
                 continue
 
             if isinstance(type_, (GenericAlias, UnionType)):
-                type_ = cls._get_base_type(type_) # noqa: PLW2901
+                type_ = cls.get_base_type(type_) # noqa: PLW2901
 
             if type_ in PRIMITIVES:
                 setattr(obj, name, type_(row[name]))

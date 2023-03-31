@@ -8,8 +8,9 @@ from test.test_models.complex_models import ComplexBasic
 
 class UnifiedSchemaTest(TestCase):
     def test_add_type(self):
-        Path(".pyodb/pyodb.db").unlink(True)
-        schema = UnifiedSchema(Path(".pyodb"), 2)
+        base_path = Path(".pyodb")
+        (base_path / "pyodb.db").unlink(True)
+        schema = UnifiedSchema(base_path, 2, False)
         schema.add_type(ComplexBasic)
 
         self.assertIn(ComplexBasic, schema._tables)
@@ -17,4 +18,5 @@ class UnifiedSchemaTest(TestCase):
         self.assertIn(PrimitiveContainer, schema._tables)
 
         for _, table in schema._tables.items():
-            self.assertEqual(schema._dbconn, table.dbconn)
+            self.assertEqual(schema._tables[ComplexBasic].dbconn, table.dbconn)
+        del schema

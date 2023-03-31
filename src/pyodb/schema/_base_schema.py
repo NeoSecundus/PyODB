@@ -1,6 +1,8 @@
+import pickle
 from logging import Logger
 from pathlib import Path
 from types import GenericAlias, UnionType
+from typing import Any
 
 from src.pyodb.schema.base._operators import Disassembler
 from src.pyodb.schema.base._sql_builders import Delete, Insert, MultiInsert, Select
@@ -9,15 +11,19 @@ from src.pyodb.schema.base._type_defs import BASE_TYPES
 
 
 class BaseSchema:
+    SAVE_NAME: str = "base_schema"
     _tables: dict[type, Table]
     _base_path: Path
+    _max_depth: int
+    is_persistent: bool
     logger: Logger | None
 
 
-    def __init__(self, base_path: Path, max_depth: int) -> None:
+    def __init__(self, base_path: Path, max_depth: int, persistent: bool) -> None:
         self._tables = {}
         self._max_depth = max_depth
         self._base_path = base_path
+        self.is_persistent = persistent
         Disassembler.max_depth = max_depth
 
 
@@ -35,6 +41,15 @@ class BaseSchema:
 
     def add_type(self, base_type: type):
         raise NotImplementedError()
+
+
+    def load_existing(self):
+        save_path = self._base_path / self.SAVE_NAME
+        if save_path.exists():
+            with save_path.open("rb") as save_file:
+                schema = pickle.load(save_file)
+                if isinstance(schema, BaseSchema):
+                    self._tables = schema._tables
 
 
     def remove_type(self, base_type: type):
@@ -153,14 +168,14 @@ class BaseSchema:
     def delete(self, type_: type) -> Delete:
         if not self.is_known_type(type_):
             raise TypeError(f"Tried to delete instance of unknown type: {type_}")
-        return Delete(self._tables[type_].fqcn)
+        return Delete(type_, self._tables)
 
 
     def clear(self):
         for table in self._tables.values():
-            if not table.dbconn:
+            if not table.dbconn or not table.is_parent:
                 continue
-            Delete(table.fqcn).commit(table.dbconn)
+            Delete(table.base_type, self._tables).commit()
 
 
     @property
@@ -168,7 +183,27 @@ class BaseSchema:
         return Disassembler.max_depth
 
 
+    @max_depth.setter
+    def max_depth(self, val: int):
+        if val < 0:
+            raise ValueError("max_depth must be >= 0!")
+        Disassembler.max_depth = val
+
+
     @property
     def schema_size(self) -> int:
         """Number of table definitions / types in the current schema"""
         return len(self._tables)
+
+
+    def _save_schema(self):
+        with open(self._base_path / self.SAVE_NAME, "wb") as file:
+            pickle.dump(self, file)
+
+
+    def __getstate__(self) -> dict[str, Any]:
+        state = vars(self).copy()
+        for key in state["_tables"].keys():
+            state["_tables"][key].dbconn = None
+        del state["logger"]
+        return state

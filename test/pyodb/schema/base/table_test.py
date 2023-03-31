@@ -26,7 +26,7 @@ class TableTest(TestCase):
 
     def test_repr(self):
         expected = "PrimitiveBasic: {'integer': 'int', 'number': 'float | None', 'text': \
-'str', 'truth': 'bool', '_private': 'float'}"
+'str', 'truth': 'bool', '_private': 'float'};"
         self.assertEqual(str(self.tpbasic), expected)
 
 

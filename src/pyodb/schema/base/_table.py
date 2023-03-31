@@ -70,7 +70,7 @@ class Table:
 
 
     def _create_table_sql(self) -> str:
-        sql = f"CREATE TABLE \"{self.fqcn}\" (_uid_ TEXT PRIMARY KEY,_parent_ TEXT,\
+        sql = f"CREATE TABLE IF NOT EXISTS \"{self.fqcn}\" (_uid_ TEXT PRIMARY KEY,_parent_ TEXT,\
 _parent_table_ TEXT,_expires_ INTEGER,"
         for name, type_ in self.members.items():
             if isinstance(type_, (GenericAlias, UnionType)):
@@ -104,9 +104,9 @@ _parent_table_ TEXT,_expires_ INTEGER,"
 
 
     def _drop_table_sql(self) -> str:
-        return f"DROP TABLE \"{self.fqcn}\";"
+        return f"DROP TABLE IF EXISTS \"{self.fqcn}\";"
 
 
     def __repr__(self) -> str:
         return f"{self.base_type.__name__}: \
-{ {k: str(t) if isinstance(t, UnionType) else t.__name__ for k, t in self._members.items()} }"
+{ {k: str(t) if isinstance(t, UnionType) else t.__name__ for k, t in self._members.items()} };"

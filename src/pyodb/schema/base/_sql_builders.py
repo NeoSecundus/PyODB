@@ -1,14 +1,15 @@
 import pickle
 import sqlite3.dbapi2 as sql
 from enum import Enum
+from pydoc import locate
 from time import time
-from types import NoneType
+from types import GenericAlias, NoneType, UnionType
 from typing import Any
 
 from src.pyodb._util import generate_uid
 from src.pyodb.schema.base._operators import Assembler
 from src.pyodb.schema.base._table import Table
-from src.pyodb.schema.base._type_defs import CONTAINERS, PRIMITIVES
+from src.pyodb.schema.base._type_defs import BASE_TYPES, CONTAINERS, PRIMITIVES
 
 
 class Insert:
@@ -103,12 +104,14 @@ class _Query:
             self.connector = connector
 
 
-    _table_name: str
+    _table: Table
+    _tables: dict[type, Table]
     _wheres: list[Where]
     _limit: int | None
     _offset: int | None
-    def __init__(self, table_name: str) -> None:
-        self._table_name = table_name
+    def __init__(self, type_: type, tables: dict[type, Table]) -> None:
+        self._table = tables[type_]
+        self._tables = tables
         self._wheres = []
         self._limit = None
 
@@ -183,49 +186,68 @@ class _Query:
         return self
 
 
-    def _compile(self, start_text: str, dbconn: sql.Connection) -> sql.Cursor:
-        text = f"{start_text} \"{self._table_name}\" "
+    def _compile(self, start_text: str, dbconn: sql.Connection, reset: bool = True) -> sql.Cursor:
+        text = f"{start_text} \"{self._table.fqcn}\" "
         vals = []
         if self._wheres:
             text += "WHERE "
             for where in self._wheres:
                 text += f"{where.colname}{where.operator}?{where.connector.value}"
                 vals += [where.value]
-            text = text[:-len(where.connector.value)]
+            text = text[:-len(self._wheres[-1].connector.value)]
 
         if self._limit:
             text += f"LIMIT {self._limit}"
             if self._offset:
                 text += f" OFFSET {self._offset}"
 
-        self._wheres = []
-        self._limit = None
-        self._offset = None
+        if reset:
+            self._wheres = []
+            self._limit = None
+            self._offset = None
         return dbconn.execute(text + ";", vals)
 
 
 class Delete(_Query):
-    def delete_count(self, dbconn: sql.Connection) -> int:
-        before: int = dbconn.execute(f"SELECT COUNT(*) FROM {self._table_name};").fetchone()[0]
+    def commit(self, full_count: bool = False) -> int:
+        if not self._table.is_parent:
+            raise TypeError("Cannot remove non-parent types directly!")
+        self.eq(_parent_ = None)
 
-        self._compile("DELETE FROM", dbconn)
-        dbconn.commit()
-
-        return dbconn.execute(f"SELECT COUNT(*) FROM {self._table_name};").fetchone()[0] - before
+        return self._commit(full_count)
 
 
-    def commit(self, dbconn: sql.Connection):
-        self._compile("DELETE FROM", dbconn)
-        dbconn.commit()
+    def _commit(self, count: bool) -> int:
+        if not self._table.dbconn:
+            raise ConnectionError(f"Table {self._table.name} has no valid connection to database!")
+
+        res: list[sql.Row] = self._compile("SELECT * FROM", self._table.dbconn, False).fetchall()
+        rlen = len(res)
+        self._compile("DELETE FROM", self._table.dbconn)
+        self._table.dbconn.commit()
+
+        for key, type_ in self._table.members.items():
+            if isinstance(type_, GenericAlias | UnionType):
+                type_ = Assembler.get_base_type(type_) # noqa: PLW2901
+
+            if type_ in BASE_TYPES:
+                continue
+
+            for item in res:
+                subtype: type = locate(item[key]) # type: ignore
+                if subtype not in self._tables:
+                    raise TypeError("Subtype was invalid!")
+
+                delete = Delete(subtype, self._tables)
+                delete.eq(_parent_=item["_uid_"])
+                if count:
+                    rlen += delete._commit(True)
+                else:
+                    delete._commit(False)
+        return rlen
 
 
 class Select(_Query):
-    def __init__(self, type_: type, tables: dict[type, Table]) -> None:
-        self._tables = tables
-        self._table = tables[type_]
-        super().__init__(tables[type_].fqcn)
-
-
     def limit(self, limit: int, offset: int | None = None):
         if limit <= 0:
             raise ValueError("Limit must be >= 0!")
@@ -234,17 +256,7 @@ class Select(_Query):
 
         self._limit = limit
         self._offset = offset
-
-
-    def _compile(self) -> sql.Cursor:
-        if not self._table.dbconn:
-            raise ConnectionError("Table does not have a valid database connection")
-
-        self._table.dbconn.execute(
-            f"DELETE FROM \"{self._table_name}\" WHERE _expires_ < {int(time())};"
-        )
-        self._table.dbconn.commit()
-        return super()._compile("SELECT * FROM", self._table.dbconn)
+        return self
 
 
     def one(self) -> Any:
@@ -274,3 +286,18 @@ class Select(_Query):
     def all(self) -> list[Any]:
         rows = self._compile().fetchall()
         return [Assembler.assemble_type(self._table.base_type, self._tables, row) for row in rows]
+
+
+    def count(self) -> int:
+        return self._compile("COUNT(*)").fetchone()[0]
+
+
+    def _compile(self, get_what: str = "*") -> sql.Cursor:
+        if not self._table.dbconn:
+            raise ConnectionError("Table does not have a valid database connection")
+
+        self._table.dbconn.execute(
+            f"DELETE FROM \"{self._table.fqcn}\" WHERE _expires_ < {int(time())};"
+        )
+        self._table.dbconn.commit()
+        return super()._compile(f"SELECT {get_what} FROM", self._table.dbconn)

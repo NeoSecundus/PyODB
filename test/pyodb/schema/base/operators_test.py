@@ -105,15 +105,17 @@ class DissassemblerTest(TestCase):
         self.assertRaises(RecursionError, Disassembler.disassemble_type, ComplexBasic)
 
 
-class AssemlberTest(TestCase):
+class AssemblerTest(TestCase):
     def test_assembly_connection_error(self):
-        Path(".pyodb/pyodb.db").unlink(True)
-        schema = UnifiedSchema(Path(".pyodb"), 1)
+        schema = UnifiedSchema(Path(".pyodb"), 1, False)
         schema.add_type(ComplexBasic)
         pbs = [ComplexBasic() for _ in range(10)]
         schema.insert_many(pbs, None)
 
         table = schema._tables[ComplexBasic]
+        if not table.dbconn:
+            self.fail()
+
         row = table.dbconn.execute(f"SELECT * FROM \"{table.fqcn}\" LIMIT 1;").fetchone()
         schema._tables[PrimitiveBasic].dbconn = None
         self.assertRaises(
@@ -123,3 +125,4 @@ class AssemlberTest(TestCase):
             tables=schema._tables,
             row=row
         )
+        del schema

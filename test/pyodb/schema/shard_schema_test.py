@@ -11,30 +11,28 @@ class ShardSchemaTest(TestCase):
     def setUp(self) -> None:
         self.base_path = Path(".pyodb")
         self.base_path.mkdir(755, exist_ok=True)
-
-        for c in [ComplexBasic, PrimitiveBasic, PrimitiveContainer]:
-            c: type
-            dbpath = self.base_path / (c.__name__ + ".db")
-            if dbpath.exists():
-                os.remove(dbpath)
+        self.schema = ShardSchema(self.base_path, 2, False)
         return super().setUp()
 
 
+    def tearDown(self) -> None:
+        del self.schema
+        return super().tearDown()
+
+
     def test_add_type(self):
-        schema = ShardSchema(self.base_path, 2)
-        schema.add_type(ComplexBasic)
+        self.schema.add_type(ComplexBasic)
 
-        self.assertIn(ComplexBasic, schema._tables)
-        self.assertIn(PrimitiveBasic, schema._tables)
-        self.assertIn(PrimitiveContainer, schema._tables)
+        self.assertIn(ComplexBasic, self.schema._tables)
+        self.assertIn(PrimitiveBasic, self.schema._tables)
+        self.assertIn(PrimitiveContainer, self.schema._tables)
 
-        for _, table in schema._tables.items():
+        for _, table in self.schema._tables.items():
             dbpath = Path(".pyodb/" + table.name + ".db")
             self.assertTrue(dbpath.is_file())
 
 
     def test_add_known_type(self):
-        schema = ShardSchema(self.base_path, 2)
-        schema.add_type(ComplexBasic)
-        schema.add_type(PrimitiveBasic)
-        self.assertTrue(schema._tables[PrimitiveBasic].is_parent)
+        self.schema.add_type(ComplexBasic)
+        self.schema.add_type(PrimitiveBasic)
+        self.assertTrue(self.schema._tables[PrimitiveBasic].is_parent)

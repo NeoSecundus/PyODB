@@ -12,7 +12,7 @@ from test.test_models.complex_models import ComplexBasic, ComplexContainer, Comp
 
 class BaseSchemaTest(TestCase):
     def setUp(self) -> None:
-        self.schema = BaseSchema(Path(".pyodb"), 2)
+        self.schema = BaseSchema(Path(".pyodb"), 2, False)
         return super().setUp()
 
 
@@ -25,6 +25,7 @@ class BaseSchemaTest(TestCase):
 
     def test_schema_max_depth(self):
         self.assertEqual(self.schema.max_depth, 2)
+        self.assertRaises(ValueError, setattr, self.schema, "max_depth", -1)
 
 
     def test_is_known_type(self):
@@ -197,7 +198,7 @@ class BaseSchemaTest(TestCase):
 
     def test_select(self):
         Path(".pyodb/pyodb.db").unlink(True)
-        self.schema = UnifiedSchema(Path(".pyodb"), 2)
+        self.schema = UnifiedSchema(Path(".pyodb"), 2, False)
         self.schema.add_type(PrimitiveBasic)
 
         self.assertEqual(type(self.schema.select(PrimitiveBasic)), Select)
@@ -206,7 +207,7 @@ class BaseSchemaTest(TestCase):
 
     def test_delete(self):
         Path(".pyodb/pyodb.db").unlink(True)
-        self.schema = UnifiedSchema(Path(".pyodb"), 2)
+        self.schema = UnifiedSchema(Path(".pyodb"), 2, False)
         self.schema.add_type(PrimitiveBasic)
 
         self.assertEqual(type(self.schema.delete(PrimitiveBasic)), Delete)
@@ -215,7 +216,7 @@ class BaseSchemaTest(TestCase):
 
     def test_clear(self):
         Path(".pyodb/pyodb.db").unlink(True)
-        self.schema = UnifiedSchema(Path(".pyodb"), 2)
+        self.schema = UnifiedSchema(Path(".pyodb"), 2, False)
         self.schema.add_type(ComplexBasic)
         self.schema._tables[PrimitiveBasic].dbconn = None
 

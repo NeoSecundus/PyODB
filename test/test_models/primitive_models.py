@@ -1,7 +1,7 @@
 from random import random, randint, choice
 
 def get_random_text(limit: int = 100) -> str:
-    allowed_chars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789=!\"§$%&/()\\`´\
+    allowed_chars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789=!\"§$&/()\\`´\
 #'+*~-_.:,;<>|[]}{^°"
     return "".join(choice(allowed_chars) for _ in range(randint(1, limit)))
 
@@ -41,7 +41,7 @@ class PrimitiveBasic:
 
     @staticmethod
     def get_create_table_sql() -> str:
-        return "CREATE TABLE \"test.test_models.primitive_models.PrimitiveBasic\" (\
+        return "CREATE TABLE IF NOT EXISTS \"test.test_models.primitive_models.PrimitiveBasic\" (\
 _uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_expires_ INTEGER,\
 integer INTEGER NOT NULL,number REAL,text TEXT NOT NULL,truth INTEGER NOT NULL,\
 _private REAL NOT NULL);"
@@ -49,7 +49,7 @@ _private REAL NOT NULL);"
 
     @staticmethod
     def get_drop_table_sql() -> str:
-        return "DROP TABLE \"test.test_models.primitive_models.PrimitiveBasic\";"
+        return "DROP TABLE IF EXISTS \"test.test_models.primitive_models.PrimitiveBasic\";"
 
 
     @staticmethod
@@ -117,14 +117,14 @@ class PrimitiveContainer:
 
     @staticmethod
     def get_create_table_sql() -> str:
-        return "CREATE TABLE \"test.test_models.primitive_models.PrimitiveContainer\" (\
+        return "CREATE TABLE IF NOT EXISTS \"test.test_models.primitive_models.PrimitiveContainer\" (\
 _uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_expires_ INTEGER,\
 listing BLOB NOT NULL,pset BLOB NOT NULL,ptuple BLOB,dictionary BLOB NOT NULL);"
 
 
     @staticmethod
     def get_drop_table_sql() -> str:
-        return "DROP TABLE \"test.test_models.primitive_models.PrimitiveContainer\";"
+        return "DROP TABLE IF EXISTS \"test.test_models.primitive_models.PrimitiveContainer\";"
 
 
     def __eq__(self, __o: object) -> bool:
