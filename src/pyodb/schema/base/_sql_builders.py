@@ -1,6 +1,6 @@
-from enum import Enum
 import pickle
 import sqlite3.dbapi2 as sql
+from enum import Enum
 from time import time
 from types import NoneType
 from typing import Any
