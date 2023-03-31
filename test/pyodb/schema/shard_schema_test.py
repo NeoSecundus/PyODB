@@ -28,6 +28,13 @@ class ShardSchemaTest(TestCase):
         self.assertIn(PrimitiveBasic, schema._tables)
         self.assertIn(PrimitiveContainer, schema._tables)
 
-        db_list = os.listdir(self.base_path.as_posix())
         for _, table in schema._tables.items():
-            self.assertIn(table.name + ".db", db_list)
+            dbpath = Path(".pyodb/" + table.name + ".db")
+            self.assertTrue(dbpath.is_file())
+
+
+    def test_add_known_type(self):
+        schema = ShardSchema(self.base_path, 2)
+        schema.add_type(ComplexBasic)
+        schema.add_type(PrimitiveBasic)
+        self.assertTrue(schema._tables[PrimitiveBasic].is_parent)

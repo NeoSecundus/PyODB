@@ -1,7 +1,10 @@
+from pathlib import Path
+import sqlite3 as sql
 from types import NoneType
 from unittest import TestCase
 
-from src.pyodb.schema.base._operators import Disassembler
+from src.pyodb.schema.base._operators import Assembler, Disassembler
+from src.pyodb.schema._unified_schema import UnifiedSchema
 from test.test_models.primitive_models import (
     PrimitiveBasic,
     PrimitiveContainer,
@@ -100,3 +103,23 @@ class DissassemblerTest(TestCase):
     def test_disassembly_depth(self):
         Disassembler.max_depth = 0
         self.assertRaises(RecursionError, Disassembler.disassemble_type, ComplexBasic)
+
+
+class AssemlberTest(TestCase):
+    def test_assembly_connection_error(self):
+        Path(".pyodb/pyodb.db").unlink(True)
+        schema = UnifiedSchema(Path(".pyodb"), 1)
+        schema.add_type(ComplexBasic)
+        pbs = [ComplexBasic() for _ in range(10)]
+        schema.insert_many(pbs, None)
+
+        table = schema._tables[ComplexBasic]
+        row = table.dbconn.execute(f"SELECT * FROM \"{table.fqcn}\" LIMIT 1;").fetchone()
+        schema._tables[PrimitiveBasic].dbconn = None
+        self.assertRaises(
+            ConnectionError,
+            Assembler.assemble_type,
+            base_type=ComplexBasic,
+            tables=schema._tables,
+            row=row
+        )

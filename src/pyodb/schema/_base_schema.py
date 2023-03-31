@@ -116,7 +116,7 @@ class BaseSchema:
             inserter.add_val(member)
             if member and type(member) not in BASE_TYPES:
                 self.insert(member, expires, inserter)
-        inserter.execute(table.dbconn)
+        inserter.commit(table.dbconn)
 
 
     def insert_many(self, objs: list, expires: int | None):
@@ -141,17 +141,17 @@ class BaseSchema:
                 if member and type(member) not in BASE_TYPES:
                     self.insert(member, expires, inserter)
             multi_inserter += inserter
-        multi_inserter.execute(table.dbconn)
+        multi_inserter.commit(table.dbconn)
 
 
     def select(self, type_: type) -> Select:
-        if self.is_known_type(type_):
+        if not self.is_known_type(type_):
             raise TypeError(f"Tried to select unknown type: {type_}")
         return Select(type_, self._tables)
 
 
     def delete(self, type_: type) -> Delete:
-        if self.is_known_type(type_):
+        if not self.is_known_type(type_):
             raise TypeError(f"Tried to delete instance of unknown type: {type_}")
         return Delete(self._tables[type_].fqcn)
 
@@ -160,7 +160,7 @@ class BaseSchema:
         for table in self._tables.values():
             if not table.dbconn:
                 continue
-            Delete(table.fqcn).delete(table.dbconn)
+            Delete(table.fqcn).commit(table.dbconn)
 
 
     @property

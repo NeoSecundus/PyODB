@@ -1,3 +1,4 @@
+from enum import Enum
 import pickle
 import sqlite3.dbapi2 as sql
 from time import time
@@ -33,7 +34,7 @@ class Insert:
             self._vals += [f"{type_.__module__}.{type_.__name__}"]
 
 
-    def execute(self, dbconn: sql.Connection):
+    def commit(self, dbconn: sql.Connection):
         insert = f"INSERT INTO \"{self._table_name}\" VALUES("
         insert += "?,"*len(self.vals)
         insert = insert[:-1] + ");"
@@ -70,7 +71,7 @@ class MultiInsert:
         return self
 
 
-    def execute(self, dbconn: sql.Connection):
+    def commit(self, dbconn: sql.Connection):
         insert = f"INSERT INTO \"{self._table_name}\" VALUES("
         insert += "?,"*len(self._vals[0])
         insert = insert[:-1] + ");"
@@ -85,10 +86,21 @@ class MultiInsert:
 
 class _Query:
     class Where:
-        def __init__(self, colname: str, operator: str, value: int|float|str|bool|None) -> None:
+        class CONNECTOR(Enum):
+            AND = " AND "
+            OR = " OR "
+
+        def __init__(
+                self,
+                colname: str,
+                operator: str,
+                value: int|float|str|bool|None,
+                connector: CONNECTOR = CONNECTOR.AND
+            ) -> None:
             self.colname = colname
             self.operator = operator
             self.value = value
+            self.connector = connector
 
 
     _table_name: str
@@ -177,14 +189,18 @@ class _Query:
         if self._wheres:
             text += "WHERE "
             for where in self._wheres:
-                text += f"{where.colname}{where.operator}?,"
+                text += f"{where.colname}{where.operator}?{where.connector.value}"
                 vals += [where.value]
-            text = text[:-1] + " "
+            text = text[:-len(where.connector.value)]
 
         if self._limit:
             text += f"LIMIT {self._limit}"
             if self._offset:
                 text += f" OFFSET {self._offset}"
+
+        self._wheres = []
+        self._limit = None
+        self._offset = None
         return dbconn.execute(text + ";", vals)
 
 
@@ -198,7 +214,7 @@ class Delete(_Query):
         return dbconn.execute(f"SELECT COUNT(*) FROM {self._table_name};").fetchone()[0] - before
 
 
-    def delete(self, dbconn: sql.Connection):
+    def commit(self, dbconn: sql.Connection):
         self._compile("DELETE FROM", dbconn)
         dbconn.commit()
 

@@ -3,7 +3,9 @@ from unittest import TestCase
 import sqlite3 as sql
 
 from src.pyodb.schema._base_schema import BaseSchema
+from src.pyodb.schema._unified_schema import UnifiedSchema
 from src.pyodb.schema.base._operators import Disassembler
+from src.pyodb.schema.base._sql_builders import Select, Delete
 from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from test.test_models.complex_models import ComplexBasic, ComplexContainer, ComplexMulti
 
@@ -191,3 +193,31 @@ class BaseSchemaTest(TestCase):
         self.assertRaises(TypeError, self.schema.insert, ComplexContainer(), None)
         self.assertRaises(TypeError, self.schema.insert_many, [ComplexContainer()], None)
         self.assertRaises(TypeError, self.schema.insert_many, [ComplexBasic(), PrimitiveBasic()], None)
+
+
+    def test_select(self):
+        Path(".pyodb/pyodb.db").unlink(True)
+        self.schema = UnifiedSchema(Path(".pyodb"), 2)
+        self.schema.add_type(PrimitiveBasic)
+
+        self.assertEqual(type(self.schema.select(PrimitiveBasic)), Select)
+        self.assertRaises(TypeError, self.schema.select, ComplexBasic)
+
+
+    def test_delete(self):
+        Path(".pyodb/pyodb.db").unlink(True)
+        self.schema = UnifiedSchema(Path(".pyodb"), 2)
+        self.schema.add_type(PrimitiveBasic)
+
+        self.assertEqual(type(self.schema.delete(PrimitiveBasic)), Delete)
+        self.assertRaises(TypeError, self.schema.delete, ComplexBasic)
+
+
+    def test_clear(self):
+        Path(".pyodb/pyodb.db").unlink(True)
+        self.schema = UnifiedSchema(Path(".pyodb"), 2)
+        self.schema.add_type(ComplexBasic)
+        self.schema._tables[PrimitiveBasic].dbconn = None
+
+        self.schema.clear()
+        self.assertTrue(True)
