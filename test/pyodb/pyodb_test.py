@@ -1,9 +1,16 @@
+import multiprocessing
+import random
+import threading
 from logging import Logger
-from unittest import TestCase
-from src.pyodb.pyodb import PyODB
-
-from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
+from multiprocessing import Process
 from test.test_models.complex_models import ComplexBasic, ComplexMulti
+from test.test_models.primitive_models import (PrimitiveBasic,
+                                               PrimitiveContainer)
+from time import sleep, time
+from unittest import TestCase
+
+from src.pyodb.error import BadTypeError, CacheError
+from src.pyodb.pyodb import PyODB, PyODBCache
 
 
 class PyODBTest(TestCase):
@@ -72,7 +79,7 @@ class PyODBTest(TestCase):
     def test_contains_type(self):
         self.pyodb.add_type(ComplexMulti)
         self.assertTrue(self.pyodb.contains_type(ComplexMulti))
-        self.assertRaises(TypeError, self.pyodb.contains_type, ComplexMulti())
+        self.assertRaises(BadTypeError, self.pyodb.contains_type, ComplexMulti())
 
 
     def test_persistency(self):
@@ -104,3 +111,121 @@ class PyODBTest(TestCase):
 
         self.pyodb = PyODB()
         self.assertEqual({}, self.pyodb._schema._tables)
+
+
+    def test_expires(self):
+        self.pyodb.add_type(PrimitiveBasic)
+        self.pyodb.save_multiple([PrimitiveBasic() for _ in range(5)], int(time())+1)
+        self.pyodb.save_multiple([PrimitiveBasic() for _ in range(3)], int(time())+5)
+        sleep(2)
+
+        self.assertEqual(len(self.pyodb.select(PrimitiveBasic).all()), 3)
+
+
+class ThreadingTest(TestCase):
+    def job(self, sharding: bool):
+        random.seed = time() - int(time()-0.5)
+        pyodb = PyODB(max_depth=3, persistent=True, sharding=sharding, log_to_console=True)
+        sleep(random.random()/10 + 0.05)
+
+        pyodb.add_type(PrimitiveBasic)
+        sleep(random.random()/10 + 0.05)
+
+        pyodb.add_type(ComplexBasic)
+        sleep(random.random()/10 + 0.05)
+
+        pyodb.save(ComplexBasic(), time()+1)
+        sleep(random.random()/10 + 0.05)
+
+        pyodb.save_multiple([PrimitiveBasic(), PrimitiveBasic()])
+        sleep(random.random()/10 + 0.05)
+
+        pyodb.select(ComplexBasic).all()
+        del pyodb
+
+
+    def test_concurrency(self):
+        for mode in [False, True]:
+            jobs: list[threading.Thread] = []
+            for i in range(10):
+                sleep(0.1)
+                jobs += [threading.Thread(target=self.job, args=[mode], daemon= i%2 == 1)]
+                jobs[-1].start()
+
+            for i in range(10):
+                jobs[i].join()
+
+            pyodb = PyODB(max_depth=3, sharding=mode)
+            sleep(1.1)
+            self.assertEqual(pyodb.select(PrimitiveBasic).count(), 20)
+            self.assertEqual(pyodb.select(ComplexBasic).count(), 0)
+            del pyodb
+
+
+    def test_multiprocessing(self):
+        multiprocessing.set_start_method("fork")
+        for mode in [False, True]:
+            jobs: list[Process] = []
+            for i in range(10):
+                sleep(0.1)
+                jobs += [Process(target=self.job, args=[mode], daemon= i%2 == 1)]
+                jobs[-1].start()
+
+            for i in range(10):
+                jobs[i].join()
+
+            sleep(1.1)
+            pyodb = PyODB(max_depth=3, sharding=mode)
+            self.assertEqual(pyodb.select(PrimitiveBasic).count(), 20)
+            self.assertEqual(pyodb.select(ComplexBasic).count(), 0)
+            del pyodb
+
+
+class PyODBCacheTest(TestCase):
+    def setUp(self) -> None:
+        self.cache = PyODBCache(PyODB())
+        self.cache.add_cache("test", lambda: [PrimitiveBasic() for _ in range(10)], PrimitiveBasic)
+        return super().setUp()
+
+
+    def test_add_load_cache(self):
+        data: list[PrimitiveBasic] = self.cache.get_data("test")
+
+        self.assertEqual(len(data), 10)
+        self.assertEqual(data[0].classmember, "cm")
+
+
+    def test_get_caches(self):
+        ccs = self.cache.caches
+        self.assertEqual(ccs["test"].data_type, PrimitiveBasic)
+        self.assertEqual(ccs["test"].lifetime, 60)
+
+
+    def test_cache_exists_error(self):
+        self.assertRaises(
+            CacheError,
+            self.cache.add_cache,
+            "test",
+            lambda: [PrimitiveBasic() for _ in range(10)],
+            PrimitiveBasic
+        )
+
+    def test_cache_not_exists_error(self):
+        self.assertRaises(
+            CacheError,
+            self.cache.get_data,
+            "bad_cache"
+        )
+
+
+    def error(self):
+        raise ValueError("Some arbitrary error")
+
+
+    def test_data_func_error(self):
+        self.cache.add_cache(
+            "error",
+            self.error,
+            PrimitiveBasic
+        )
+        self.assertRaises(ValueError, self.cache.get_data, "error")

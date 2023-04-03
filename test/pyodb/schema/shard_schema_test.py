@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest import TestCase
 import os
 
-from src.pyodb.schema._shard_schema import ShardSchema
+from src.pyodb.schema.shard_schema import ShardSchema
 from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from test.test_models.complex_models import ComplexBasic
 

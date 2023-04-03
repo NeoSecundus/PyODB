@@ -7,6 +7,7 @@ from types import GenericAlias, NoneType, UnionType
 from typing import Any
 
 from src.pyodb._util import generate_uid
+from src.pyodb.error import BadTypeError, DBConnError, ExpiryError, ParentError, QueryError
 from src.pyodb.schema.base._operators import Assembler
 from src.pyodb.schema.base._table import Table
 from src.pyodb.schema.base._type_defs import BASE_TYPES, CONTAINERS, PRIMITIVES
@@ -18,10 +19,12 @@ class Insert:
             table_name: str,
             parent: str | None,
             parent_table: str | None,
-            expires: int | None
+            expires: float | None
         ) -> None:
         self._table_name = table_name
         self._uid = generate_uid()
+        if expires and expires <= time():
+            raise ExpiryError("expires must greater than current timestamp")
         self._vals = [parent, parent_table, expires]
 
 
@@ -68,7 +71,7 @@ class MultiInsert:
         elif isinstance(other, MultiInsert):
             self._vals += other._vals
         else:
-            raise TypeError(f"Cannot add {type(other)} to MultiInsert")
+            raise BadTypeError(f"Cannot add {type(other)} to MultiInsert")
         return self
 
 
@@ -119,7 +122,9 @@ class _Query:
     def eq(self, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float, str, bool, NoneType)):
-                raise TypeError("Values must be int, float, str or bool for == check!")
+                raise BadTypeError(
+                    f"Values must be int, float, str or bool for == check! Got: {type(val)}"
+                )
             if val is None:
                 self._wheres += [self.Where(key, " IS ", None)]
             else:
@@ -130,7 +135,9 @@ class _Query:
     def ne(self, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float, str, bool, NoneType)):
-                raise TypeError("Values must be int, float, str or bool for == check!")
+                raise BadTypeError(
+                    f"Values must be int, float, str or bool for != check! Got: {type(val)}"
+                )
             if val is None:
                 self._wheres += [self.Where(key, " IS NOT ", None)]
             else:
@@ -141,7 +148,7 @@ class _Query:
     def lt(self, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float)):
-                raise TypeError("Values must be int or float for < check!")
+                raise BadTypeError(f"Values must be int or float for < check! Got: {type(val)}")
             self._wheres += [self.Where(key, " < ", val)]
         return self
 
@@ -149,7 +156,7 @@ class _Query:
     def gt(self, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float)):
-                raise TypeError("Values must be int or float for > check!")
+                raise BadTypeError(f"Values must be int or float for > check! Got: {type(val)}")
             self._wheres += [self.Where(key, " > ", val)]
         return self
 
@@ -157,7 +164,7 @@ class _Query:
     def le(self, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float)):
-                raise TypeError("Values must be int or float for <= check!")
+                raise BadTypeError(f"Values must be int or float for <= check! Got: {type(val)}")
             self._wheres += [self.Where(key, " <= ", val)]
         return self
 
@@ -165,7 +172,7 @@ class _Query:
     def ge(self, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float)):
-                raise TypeError("Values must be int or float for >= check!")
+                raise BadTypeError(f"Values must be int or float for >= check! Got: {type(val)}")
             self._wheres += [self.Where(key, " >= ", val)]
         return self
 
@@ -173,7 +180,7 @@ class _Query:
     def like(self, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, str):
-                raise TypeError("Values must be strings for like check!")
+                raise BadTypeError(f"Values must be strings for like check! Got: {type(val)}")
             self._wheres += [self.Where(key, " LIKE ", val)]
         return self
 
@@ -181,7 +188,7 @@ class _Query:
     def nlike(self, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, str):
-                raise TypeError("Values must be strings for not like check!")
+                raise BadTypeError(f"Values must be strings for not like check! Got: {type(val)}")
             self._wheres += [self.Where(key, " NOT LIKE ", val)]
         return self
 
@@ -211,7 +218,7 @@ class _Query:
 class Delete(_Query):
     def commit(self, full_count: bool = False) -> int:
         if not self._table.is_parent:
-            raise TypeError("Cannot remove non-parent types directly!")
+            raise ParentError("Cannot remove non-parent types directly!")
         self.eq(_parent_ = None)
 
         return self._commit(full_count)
@@ -219,7 +226,7 @@ class Delete(_Query):
 
     def _commit(self, count: bool) -> int:
         if not self._table.dbconn:
-            raise ConnectionError(f"Table {self._table.name} has no valid connection to database!")
+            raise DBConnError(f"Table {self._table.name} has no valid connection to database!")
 
         res: list[sql.Row] = self._compile("SELECT * FROM", self._table.dbconn, False).fetchall()
         rlen = len(res)
@@ -236,7 +243,7 @@ class Delete(_Query):
             for item in res:
                 subtype: type = locate(item[key]) # type: ignore
                 if subtype not in self._tables:
-                    raise TypeError("Subtype was invalid!")
+                    raise BadTypeError("Subtype was invalid!")
 
                 delete = Delete(subtype, self._tables)
                 delete.eq(_parent_=item["_uid_"])
@@ -266,9 +273,9 @@ class Select(_Query):
 
         rows = self._compile().fetchall()
         if len(rows) > 1:
-            raise IndexError("Too many results found for query")
+            raise QueryError("Too many results found for query")
         if len(rows) == 0:
-            raise IndexError("No results found for query")
+            raise QueryError("No results found for query")
 
         return Assembler.assemble_type(self._table.base_type, self._tables, rows[0])
 
@@ -294,10 +301,10 @@ class Select(_Query):
 
     def _compile(self, get_what: str = "*") -> sql.Cursor:
         if not self._table.dbconn:
-            raise ConnectionError("Table does not have a valid database connection")
+            raise DBConnError("Table does not have a valid database connection")
 
         self._table.dbconn.execute(
-            f"DELETE FROM \"{self._table.fqcn}\" WHERE _expires_ < {int(time())};"
+            f"DELETE FROM \"{self._table.fqcn}\" WHERE _expires_ < {time()};"
         )
         self._table.dbconn.commit()
         return super()._compile(f"SELECT {get_what} FROM", self._table.dbconn)

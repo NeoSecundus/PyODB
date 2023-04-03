@@ -1,7 +1,7 @@
 from pathlib import Path
 from unittest import TestCase
 
-from src.pyodb.schema._unified_schema import UnifiedSchema
+from src.pyodb.schema.unified_schema import UnifiedSchema
 from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from test.test_models.complex_models import ComplexBasic
 

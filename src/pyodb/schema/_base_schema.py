@@ -4,6 +4,7 @@ from pathlib import Path
 from types import GenericAlias, UnionType
 from typing import Any
 
+from src.pyodb.error import DBConnError, DisassemblyError, ParentError, UnknownTypeError
 from src.pyodb.schema.base._operators import Disassembler
 from src.pyodb.schema.base._sql_builders import Delete, Insert, MultiInsert, Select
 from src.pyodb.schema.base._table import Table
@@ -49,15 +50,16 @@ class BaseSchema:
             with save_path.open("rb") as save_file:
                 schema = pickle.load(save_file)
                 if isinstance(schema, BaseSchema):
-                    self._tables = schema._tables
+                    for type_, table in schema._tables.items():
+                        self.add_type(type_)
 
 
     def remove_type(self, base_type: type):
         if not self.is_known_type(base_type):
-            raise TypeError(f"Cannot remove type! Unknown type: {base_type}")
+            raise UnknownTypeError(f"Cannot remove type! Unknown type: {base_type}")
         parent = self.get_parent(base_type)
         if parent:
-            raise ConnectionError(
+            raise ParentError(
                 f"'{base_type}' could not be removed because '{parent}' depends on it!"
             )
         self._remove_type(None, base_type)
@@ -88,7 +90,7 @@ class BaseSchema:
 
     def get_parent(self, base_type: type) -> type | None:
         if not self.is_known_type(base_type):
-            raise TypeError(f"Tried to get parent of unknown type: {base_type}")
+            raise UnknownTypeError(f"Tried to get parent of unknown type: {base_type}")
 
         for ttype, table in self._tables.items():
             if ttype == base_type or not table.is_parent:
@@ -113,13 +115,13 @@ class BaseSchema:
         return None
 
 
-    def insert(self, obj: object, expires: int | None, parent: Insert | None = None):
+    def insert(self, obj: object, expires: float | None, parent: Insert | None = None):
         if not self.is_known_type(type(obj)):
-            raise TypeError(f"Tried to insert object of unknown type {type(obj)}")
+            raise UnknownTypeError(f"Tried to insert object of unknown type {type(obj)}")
 
         table = self._tables[type(obj)]
         if not table.dbconn:
-            raise ConnectionError("Table has no valid connection to a database")
+            raise DBConnError("Table has no valid connection to a database")
 
         if parent:
             inserter = Insert(table.fqcn, parent.uid, parent.table_name, expires)
@@ -134,18 +136,18 @@ class BaseSchema:
         inserter.commit(table.dbconn)
 
 
-    def insert_many(self, objs: list, expires: int | None):
+    def insert_many(self, objs: list, expires: float | None):
         base_type = type(objs[0])
         if not self.is_known_type(base_type):
-            raise TypeError(f"Tried to insert object of unknown type {base_type}")
+            raise UnknownTypeError(f"Tried to insert object of unknown type {base_type}")
 
         table = self._tables[base_type]
         if not table.dbconn:
-            raise ConnectionError("Table has no valid connection to a database")
+            raise DBConnError("Table has no valid connection to a database")
         multi_inserter = MultiInsert(table.fqcn)
 
         if any(type(obj) != base_type for obj in objs):
-            raise TypeError("Types in inserted list must all be the same!")
+            raise DisassemblyError("Types in inserted list must all be the same!")
 
         for obj in objs:
             inserter = Insert(table.name, None, None, expires)
@@ -161,13 +163,13 @@ class BaseSchema:
 
     def select(self, type_: type) -> Select:
         if not self.is_known_type(type_):
-            raise TypeError(f"Tried to select unknown type: {type_}")
+            raise UnknownTypeError(f"Tried to select unknown type: {type_}")
         return Select(type_, self._tables)
 
 
     def delete(self, type_: type) -> Delete:
         if not self.is_known_type(type_):
-            raise TypeError(f"Tried to delete instance of unknown type: {type_}")
+            raise UnknownTypeError(f"Tried to delete instance of unknown type: {type_}")
         return Delete(type_, self._tables)
 
 

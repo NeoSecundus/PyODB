@@ -1,4 +1,5 @@
-from random import random, randint, choice
+from random import choice, randint, random
+
 
 def get_random_text(limit: int = 100) -> str:
     allowed_chars = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789=!\"§$&/()\\`´\
@@ -7,7 +8,7 @@ def get_random_text(limit: int = 100) -> str:
 
 
 class PrimitiveBasic:
-    __pyodb_members__: dict[str, type] = {
+    __odb_members__: dict[str, type] = {
         "integer": int,
         "number": float | None,
         "text": str,
@@ -131,6 +132,19 @@ listing BLOB NOT NULL,pset BLOB NOT NULL,ptuple BLOB,dictionary BLOB NOT NULL);"
         if isinstance(__o, PrimitiveContainer):
             return self.listing == __o.listing
         return False
+
+
+class ReassemblyTester:
+    txt: str
+    reassembled: bool
+
+    def __init__(self) -> None:
+        self.txt = get_random_text(30)
+        self.reassembled = False
+
+
+    def __odb_reassemble__(self):
+        self.reassembled = True
 
 
 class PrimitiveIllegal1:

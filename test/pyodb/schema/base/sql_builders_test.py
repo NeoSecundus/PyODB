@@ -1,10 +1,20 @@
 from pathlib import Path
 from test.test_models.complex_models import ComplexMulti
-from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
+from test.test_models.primitive_models import (PrimitiveBasic,
+                                               PrimitiveContainer)
+from time import time
 from unittest import TestCase
 
-from src.pyodb.schema._unified_schema import UnifiedSchema
-from src.pyodb.schema.base._sql_builders import Delete, Insert, MultiInsert, Select
+from src.pyodb.error import (BadTypeError, DBConnError, ExpiryError,
+                             ParentError, QueryError)
+from src.pyodb.schema.base._sql_builders import (Delete, Insert, MultiInsert,
+                                                 Select)
+from src.pyodb.schema.unified_schema import UnifiedSchema
+
+
+class InsertTest(TestCase):
+    def test_expires_error(self):
+        self.assertRaises(ExpiryError, Insert, "table1", None, None, expires=time())
 
 
 class MultiInsertTest(TestCase):
@@ -23,7 +33,7 @@ class MultiInsertTest(TestCase):
 
     def test_add_error(self):
         mi = MultiInsert("table1")
-        self.assertRaises(TypeError, mi.__add__, PrimitiveBasic())
+        self.assertRaises(BadTypeError, mi.__add__, PrimitiveBasic())
 
 
 class SelectTest(TestCase):
@@ -56,7 +66,7 @@ class SelectTest(TestCase):
             query.eq(txt = None)
 
         select = Select(ComplexMulti, self.schema._tables)
-        self.assertRaises(TypeError, select.eq, _private = self.pbs[0])
+        self.assertRaises(BadTypeError, select.eq, _private = self.pbs[0])
 
 
     def test_ne(self):
@@ -74,7 +84,7 @@ class SelectTest(TestCase):
             query.ne(txt = None)
 
         select = Select(ComplexMulti, self.schema._tables)
-        self.assertRaises(TypeError, select.ne, _private = self.pbs[0])
+        self.assertRaises(BadTypeError, select.ne, _private = self.pbs[0])
 
 
     def test_lt_le(self):
@@ -90,8 +100,8 @@ class SelectTest(TestCase):
             self.assertEqual(len(res1), lr1-1)
 
         select = Select(ComplexMulti, self.schema._tables)
-        self.assertRaises(TypeError, select.lt, _private = self.pbs[0])
-        self.assertRaises(TypeError, select.le, _private = self.pbs[0])
+        self.assertRaises(BadTypeError, select.lt, _private = self.pbs[0])
+        self.assertRaises(BadTypeError, select.le, _private = self.pbs[0])
 
 
     def test_gt_ge(self):
@@ -106,8 +116,8 @@ class SelectTest(TestCase):
             self.assertEqual(len(res1), lr1+1)
 
         select = Select(ComplexMulti, self.schema._tables)
-        self.assertRaises(TypeError, select.gt, _private = self.pbs[0])
-        self.assertRaises(TypeError, select.ge, _private = self.pbs[0])
+        self.assertRaises(BadTypeError, select.gt, _private = self.pbs[0])
+        self.assertRaises(BadTypeError, select.ge, _private = self.pbs[0])
 
 
     def test_like_nlike(self):
@@ -122,8 +132,8 @@ class SelectTest(TestCase):
             self.assertGreaterEqual(len(res2), 9)
 
         select = Select(ComplexMulti, self.schema._tables)
-        self.assertRaises(TypeError, select.like, text = 8)
-        self.assertRaises(TypeError, select.nlike, text = True)
+        self.assertRaises(BadTypeError, select.like, text = 8)
+        self.assertRaises(BadTypeError, select.nlike, text = True)
 
 
     def test_limit_offset(self):
@@ -137,10 +147,10 @@ class SelectTest(TestCase):
 
     def test_compile_one_errors(self):
         query = Select(PrimitiveBasic, self.schema._tables).limit(2)
-        self.assertRaises(IndexError, query.one)
-        self.assertRaises(IndexError, query.eq(text = None).one)
+        self.assertRaises(QueryError, query.one)
+        self.assertRaises(QueryError, query.eq(text = None).one)
         query._table.dbconn = None
-        self.assertRaises(ConnectionError, query.first)
+        self.assertRaises(DBConnError, query.first)
 
 
     def test_first(self):
@@ -198,15 +208,15 @@ class DeleteTest(TestCase):
             table.dbconn.commit()
 
         query = Delete(ComplexMulti, self.schema._tables)
-        self.assertRaises(TypeError, query.commit)
+        self.assertRaises(BadTypeError, query.commit)
 
 
     def test_connection_error(self):
         self.schema._tables[ComplexMulti].dbconn = None
         query = Delete(ComplexMulti, self.schema._tables)
-        self.assertRaises(ConnectionError, query.commit)
+        self.assertRaises(DBConnError, query.commit)
 
 
     def test_non_parent_table_error(self):
         query = Delete(PrimitiveContainer, self.schema._tables)
-        self.assertRaises(TypeError, query.commit)
+        self.assertRaises(ParentError, query.commit)

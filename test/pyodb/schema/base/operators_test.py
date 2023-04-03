@@ -1,23 +1,17 @@
 from pathlib import Path
-import sqlite3 as sql
+from test.test_models.complex_models import (ComplexBasic, ComplexContainer,
+                                             ComplexIllegal1, ComplexIllegal2,
+                                             ComplexIllegal3, ComplexMulti)
+from test.test_models.primitive_models import (PrimitiveBasic,
+                                               PrimitiveContainer,
+                                               PrimitiveIllegal1,
+                                               ReassemblyTester)
 from types import NoneType
 from unittest import TestCase
 
+from src.pyodb.error import DBConnError, DisassemblyError, MixedTypesError
 from src.pyodb.schema.base._operators import Assembler, Disassembler
-from src.pyodb.schema._unified_schema import UnifiedSchema
-from test.test_models.primitive_models import (
-    PrimitiveBasic,
-    PrimitiveContainer,
-    PrimitiveIllegal1,
-)
-from test.test_models.complex_models import (
-    ComplexBasic,
-    ComplexIllegal1,
-    ComplexIllegal2,
-    ComplexIllegal3,
-    ComplexMulti,
-    ComplexContainer,
-)
+from src.pyodb.schema.unified_schema import UnifiedSchema
 
 
 class DissassemblerTest(TestCase):
@@ -94,7 +88,7 @@ class DissassemblerTest(TestCase):
         for type_ in bad_types:
             print(f"Testing type: {type_}")
             self.assertRaises(
-                TypeError,
+                (DisassemblyError, MixedTypesError),
                 Disassembler.disassemble_type,
                 type_
             )
@@ -102,7 +96,7 @@ class DissassemblerTest(TestCase):
 
     def test_disassembly_depth(self):
         Disassembler.max_depth = 0
-        self.assertRaises(RecursionError, Disassembler.disassemble_type, ComplexBasic)
+        self.assertRaises(DisassemblyError, Disassembler.disassemble_type, ComplexBasic)
 
 
 class AssemblerTest(TestCase):
@@ -119,10 +113,26 @@ class AssemblerTest(TestCase):
         row = table.dbconn.execute(f"SELECT * FROM \"{table.fqcn}\" LIMIT 1;").fetchone()
         schema._tables[PrimitiveBasic].dbconn = None
         self.assertRaises(
-            ConnectionError,
+            DBConnError,
             Assembler.assemble_type,
             base_type=ComplexBasic,
             tables=schema._tables,
             row=row
         )
+        del schema
+
+
+    def test_reassembly_function(self):
+        schema = UnifiedSchema(Path(".pyodb"), 1, False)
+        schema.add_type(ReassemblyTester)
+        rts = [ReassemblyTester() for _ in range(10)]
+        schema.insert_many(rts, None)
+
+        table = schema._tables[ReassemblyTester]
+        if not table.dbconn:
+            self.fail()
+
+        row = table.dbconn.execute(f"SELECT * FROM \"{table.fqcn}\" LIMIT 1;").fetchone()
+        res = Assembler.assemble_type(ReassemblyTester, schema._tables, row)
+        self.assertTrue(res.reassembled)
         del schema

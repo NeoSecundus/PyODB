@@ -4,6 +4,7 @@ from pydoc import locate
 from types import GenericAlias, NoneType, UnionType
 from typing import Any
 
+from src.pyodb.error import DBConnError, DisassemblyError, MixedTypesError
 from src.pyodb.schema.base._table import Table
 from src.pyodb.schema.base._type_defs import BASE_TYPES, CONTAINERS, PRIMITIVES
 
@@ -45,11 +46,13 @@ class Assembler:
                 ttype: type = locate(row[name]) # type: ignore
                 subtable = tables[ttype]
                 if not subtable.dbconn:
-                    raise ConnectionError("Table does not have a valid database connection!")
+                    raise DBConnError("Table does not have a valid database connection!")
                 subrow: sql.Row = subtable.dbconn.execute(
                     f"SELECT * FROM \"{subtable.fqcn}\" WHERE _parent_ = '{row['_uid_']}'"
                 ).fetchone()
                 setattr(obj, name, cls.assemble_type(ttype, tables, subrow))
+        if "__odb_reassemble__" in base_type.__dict__:
+            obj.__odb_reassemble__()
         return obj
 
 
@@ -61,7 +64,7 @@ class Disassembler:
     def _disassemble_union_type(cls, type_: UnionType, depth: int) -> list[Table]:
         tables = []
         if any([t in BASE_TYPES for t in type_.__args__]):
-            raise TypeError(
+            raise MixedTypesError(
                 f"Cannot save object with mixed primitive and custom type annotations \
 or multiple primitives! Got: {type_}"
             )
@@ -76,18 +79,18 @@ or multiple primitives! Got: {type_}"
     @classmethod
     def disassemble_type(cls, obj_type: type, depth: int = 0) -> list[Table]:
         if depth > cls.max_depth:
-            raise RecursionError(f"Surpassed max depth when disassembling type {obj_type}")
+            raise DisassemblyError(f"Surpassed max depth when disassembling type {obj_type}")
 
         if obj_type is Any or obj_type is NoneType or obj_type in BASE_TYPES:
-            raise TypeError("'Any', 'None' and 'Primitive' types are not supported!")
+            raise DisassemblyError("'Any', 'None' and 'Primitive' types are not supported!")
 
         if not isinstance(obj_type, type):
-            raise TypeError("Passed argument must be a type!")
+            raise DisassemblyError("Passed argument must be a type!")
 
         tables = [Table(obj_type)]
 
-        if "__pyodb_members__" in obj_type.__annotations__:
-            members = getattr(obj_type, "__pyodb_members__")
+        if "__odb_members__" in obj_type.__annotations__:
+            members = getattr(obj_type, "__odb_members__")
         else:
             members: dict[str, type | UnionType | GenericAlias] = {
                 key: type_
@@ -102,14 +105,9 @@ or multiple primitives! Got: {type_}"
                 continue
 
             if type_ not in BASE_TYPES:
-                try:
-                    if isinstance(type_, UnionType):
-                        tables += cls._disassemble_union_type(type_, depth)
-                    else:
-                        tables += cls.disassemble_type(type_, depth+1)
-                except RecursionError as err:
-                    raise RecursionError(
-                        f"Surpassed max depth when disassembling type {obj_type}"
-                    ) from err
+                if isinstance(type_, UnionType):
+                    tables += cls._disassemble_union_type(type_, depth)
+                else:
+                    tables += cls.disassemble_type(type_, depth+1)
 
         return tables

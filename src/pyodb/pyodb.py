@@ -2,11 +2,14 @@
 """
 import logging
 from pathlib import Path
+from time import time
+from typing import Any, Callable
 
 from src.pyodb._util import create_logger
-from src.pyodb.schema._shard_schema import ShardSchema
-from src.pyodb.schema._unified_schema import UnifiedSchema
+from src.pyodb.error import BadTypeError, CacheError, PyODBError
 from src.pyodb.schema.base._sql_builders import Delete, Select
+from src.pyodb.schema.shard_schema import ShardSchema
+from src.pyodb.schema.unified_schema import UnifiedSchema
 
 
 class PyODB:
@@ -62,10 +65,10 @@ class PyODB:
 
         if do_logging:
             self._logger = create_logger(log_folder.as_posix(), log_level, console_output)
-            self._schema.logger = self._logger
         else:
             self._logger = None
-            self._schema.logger = None
+        self._schema.logger = self._logger
+        PyODBError.set_logger(self._logger)
 
 
     @property
@@ -78,7 +81,7 @@ class PyODB:
         self._schema.max_depth = val
 
 
-    def save(self, obj: object, expires: int | None = None):
+    def save(self, obj: object, expires: float | None = None):
         obj_type = type(obj)
         if self._logger:
             self._logger.debug(f"Saving object of type {obj_type}")
@@ -90,7 +93,7 @@ class PyODB:
         self._schema.insert(obj, expires)
 
 
-    def save_multiple(self, obj: list[object], expires: int | None = None):
+    def save_multiple(self, obj: list[object], expires: float | None = None):
         if not obj:
             return
         self._schema.insert_many(obj, expires)
@@ -118,7 +121,7 @@ class PyODB:
 
     def contains_type(self, type_: type) -> bool:
         if not isinstance(type_, type):
-            raise TypeError("Argument 'type_' must be a type!")
+            raise BadTypeError("Argument 'type_' must be a non-union and non-generic type!")
         return self._schema.is_known_type(type_)
 
 
@@ -130,3 +133,79 @@ class PyODB:
     @persistent.setter
     def persistent(self, val: bool):
         self._schema.is_persistent = val
+
+
+class PyODBCache:
+    """Class that caches database requests and returns cached data if available.
+    Also updates the data if it is expired. Expiry times are set within the class."""
+    class _CacheItem:
+        def __init__(self, data_func: Callable, data_type: type, lifetime: float) -> None:
+            self.data_func = data_func
+            self.data_type = data_type
+            self.lifetime = lifetime
+
+
+    _caches: dict[str, _CacheItem]
+    _pyodb: PyODB
+
+    @property
+    def logger(self) -> logging.Logger | None:
+        return self._pyodb._logger
+
+
+    @property
+    def pyodb(self) -> PyODB:
+        return self._pyodb
+
+
+    @property
+    def caches(self) -> dict[str, _CacheItem]:
+        return self._caches.copy()
+
+
+    def __init__(self, pyodb: PyODB) -> None:
+        self._pyodb = pyodb
+        self._caches = {}
+
+
+    def cache_exists(self, cache_id: str) -> bool:
+        return cache_id in self._caches
+
+
+    def add_cache(
+            self,
+            cache_id: str,
+            data_func: Callable,
+            data_type: type,
+            expiry: int = 60,
+            force: bool = False
+        ):
+        if not force and self.cache_exists(cache_id):
+            raise CacheError(
+                f"Cache '{cache_id}' already exists! Use 'force=True' to suppress this error."
+            )
+
+        self.pyodb.add_type(data_type)
+        self._caches[cache_id] = self._CacheItem(data_func, data_type, expiry)
+        if self.logger:
+            self.logger.info(f"Added cache definition for '{cache_id}'")
+
+
+    def get_data(self, cache_id: str) -> list[Any]:
+        if not self.cache_exists(cache_id):
+            raise CacheError(f"Cache with id '{cache_id}' does not exist!")
+        cache = self._caches[cache_id]
+
+        data = self.pyodb.select(cache.data_type).all()
+        if not data:
+            try:
+                data = cache.data_func()
+                self.pyodb.save_multiple(data, time() + cache.lifetime)
+                if self.logger:
+                    self.logger.debug(f"Refreshed cached {cache_id}")
+            except BaseException as err:
+                if self.logger:
+                    self.logger.error(f"Failed to get/refresh datacache {cache_id}! Details: {err}")
+                raise err
+
+        return data

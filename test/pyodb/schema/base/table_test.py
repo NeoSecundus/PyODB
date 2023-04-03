@@ -1,8 +1,10 @@
+from test.test_models.complex_models import ComplexBasic
+from test.test_models.primitive_models import (PrimitiveBasic,
+                                               PrimitiveContainer)
 from unittest import TestCase
 
+from src.pyodb.error import DBConnError
 from src.pyodb.schema.base._operators import Disassembler
-from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
-from test.test_models.complex_models import ComplexBasic
 
 
 class TableTest(TestCase):
@@ -37,6 +39,6 @@ class TableTest(TestCase):
 
     def test_dbconn_errors(self):
         table = Disassembler.disassemble_type(PrimitiveBasic)[0]
-        self.assertRaises(ConnectionError, table.create_table)
-        self.assertRaises(ConnectionError, table.drop_table)
-        self.assertRaises(ConnectionError, table.delete_parent_entries, table)
+        self.assertRaises(DBConnError, table.create_table)
+        self.assertRaises(DBConnError, table.drop_table)
+        self.assertRaises(DBConnError, table.delete_parent_entries, table)

@@ -1,13 +1,17 @@
-from pathlib import Path
-from unittest import TestCase
 import sqlite3 as sql
+from pathlib import Path
+from test.test_models.complex_models import (ComplexBasic, ComplexContainer,
+                                             ComplexMulti)
+from test.test_models.primitive_models import (PrimitiveBasic,
+                                               PrimitiveContainer)
+from unittest import TestCase
 
+from src.pyodb.error import (BadTypeError, DBConnError, DisassemblyError,
+                             ParentError, UnknownTypeError)
 from src.pyodb.schema._base_schema import BaseSchema
-from src.pyodb.schema._unified_schema import UnifiedSchema
 from src.pyodb.schema.base._operators import Disassembler
-from src.pyodb.schema.base._sql_builders import Select, Delete
-from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
-from test.test_models.complex_models import ComplexBasic, ComplexContainer, ComplexMulti
+from src.pyodb.schema.base._sql_builders import Delete, Select
+from src.pyodb.schema.unified_schema import UnifiedSchema
 
 
 class BaseSchemaTest(TestCase):
@@ -59,7 +63,7 @@ class BaseSchemaTest(TestCase):
         self.assertIsNotNone(self.schema.get_parent(PrimitiveBasic))
         self.assertIsNone(self.schema.get_parent(ComplexMulti))
 
-        self.assertRaises(TypeError, self.schema.get_parent, ComplexBasic)
+        self.assertRaises(UnknownTypeError, self.schema.get_parent, ComplexBasic)
 
 
     def test_remove_type(self):
@@ -106,8 +110,8 @@ class BaseSchemaTest(TestCase):
             table.dbconn = dbconn
             table.create_table()
 
-        self.assertRaises(ConnectionError, self.schema.remove_type, PrimitiveBasic)
-        self.assertRaises(TypeError, self.schema.remove_type, ComplexMulti)
+        self.assertRaises(ParentError, self.schema.remove_type, PrimitiveBasic)
+        self.assertRaises(UnknownTypeError, self.schema.remove_type, ComplexMulti)
 
 
     def test_insert(self):
@@ -187,13 +191,13 @@ class BaseSchemaTest(TestCase):
             table.create_table()
 
         self.schema._tables[ComplexBasic].dbconn = None
-        self.assertRaises(ConnectionError, self.schema.insert, ComplexBasic(), None)
-        self.assertRaises(ConnectionError, self.schema.insert_many, [ComplexBasic()], None)
+        self.assertRaises(DBConnError, self.schema.insert, ComplexBasic(), None)
+        self.assertRaises(DBConnError, self.schema.insert_many, [ComplexBasic()], None)
 
         self.schema._tables[ComplexBasic].dbconn = dbconn
-        self.assertRaises(TypeError, self.schema.insert, ComplexContainer(), None)
-        self.assertRaises(TypeError, self.schema.insert_many, [ComplexContainer()], None)
-        self.assertRaises(TypeError, self.schema.insert_many, [ComplexBasic(), PrimitiveBasic()], None)
+        self.assertRaises(UnknownTypeError, self.schema.insert, ComplexContainer(), None)
+        self.assertRaises(UnknownTypeError, self.schema.insert_many, [ComplexContainer()], None)
+        self.assertRaises(DisassemblyError, self.schema.insert_many, [ComplexBasic(), PrimitiveBasic()], None)
 
 
     def test_select(self):
@@ -202,7 +206,7 @@ class BaseSchemaTest(TestCase):
         self.schema.add_type(PrimitiveBasic)
 
         self.assertEqual(type(self.schema.select(PrimitiveBasic)), Select)
-        self.assertRaises(TypeError, self.schema.select, ComplexBasic)
+        self.assertRaises(UnknownTypeError, self.schema.select, ComplexBasic)
 
 
     def test_delete(self):
@@ -211,7 +215,7 @@ class BaseSchemaTest(TestCase):
         self.schema.add_type(PrimitiveBasic)
 
         self.assertEqual(type(self.schema.delete(PrimitiveBasic)), Delete)
-        self.assertRaises(TypeError, self.schema.delete, ComplexBasic)
+        self.assertRaises(UnknownTypeError, self.schema.delete, ComplexBasic)
 
 
     def test_clear(self):

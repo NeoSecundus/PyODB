@@ -31,6 +31,4 @@ class ShardSchema(BaseSchema):
 
     def __setstate__(self, state: dict):
         self.__dict__ |= state
-        for table in self._tables.values():
-            table.dbconn = sql.connect(self._base_path / (table.name + ".db"))
         self.logger = None

@@ -5,6 +5,7 @@ Including create and remove table statements in case the fields contained by a c
 import sqlite3 as sql
 from types import GenericAlias, NoneType, UnionType
 
+from src.pyodb.error import DBConnError
 from src.pyodb.schema.base._type_defs import BASE_TYPE_SQL_MAP, BASE_TYPES
 
 
@@ -50,21 +51,21 @@ class Table:
 
     def create_table(self):
         if not self.dbconn:
-            raise ConnectionError("Table has no valid connection to any Database!")
+            raise DBConnError("Table has no valid connection to any Database!")
         self.dbconn.execute(self._create_table_sql())
         self.dbconn.commit()
 
 
     def drop_table(self):
         if not self.dbconn:
-            raise ConnectionError("Table has no valid connection to any Database!")
+            raise DBConnError("Table has no valid connection to any Database!")
         self.dbconn.execute(self._drop_table_sql())
         self.dbconn.commit()
 
 
     def delete_parent_entries(self, parent):
         if not self.dbconn:
-            raise ConnectionError("Table has no valid connection to any Database!")
+            raise DBConnError("Table has no valid connection to any Database!")
         self.dbconn.execute(f"DELETE FROM \"{self.fqcn}\" WHERE _parent_table_ = '{parent.name}'")
         self.dbconn.commit()
 
