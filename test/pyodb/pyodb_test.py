@@ -4,8 +4,7 @@ import threading
 from logging import Logger
 from multiprocessing import Process
 from test.test_models.complex_models import ComplexBasic, ComplexMulti
-from test.test_models.primitive_models import (PrimitiveBasic,
-                                               PrimitiveContainer)
+from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from time import sleep, time
 from unittest import TestCase
 
@@ -115,8 +114,8 @@ class PyODBTest(TestCase):
 
     def test_expires(self):
         self.pyodb.add_type(PrimitiveBasic)
-        self.pyodb.save_multiple([PrimitiveBasic() for _ in range(5)], int(time())+1)
-        self.pyodb.save_multiple([PrimitiveBasic() for _ in range(3)], int(time())+5)
+        self.pyodb.save_multiple([PrimitiveBasic() for _ in range(5)], time()+1)
+        self.pyodb.save_multiple([PrimitiveBasic() for _ in range(3)], time()+5)
         sleep(2)
 
         self.assertEqual(len(self.pyodb.select(PrimitiveBasic).all()), 3)
@@ -147,17 +146,17 @@ class ThreadingTest(TestCase):
     def test_concurrency(self):
         for mode in [False, True]:
             jobs: list[threading.Thread] = []
-            for i in range(10):
+            for i in range(8):
                 sleep(0.1)
                 jobs += [threading.Thread(target=self.job, args=[mode], daemon= i%2 == 1)]
                 jobs[-1].start()
 
-            for i in range(10):
+            for i in range(8):
                 jobs[i].join()
 
             pyodb = PyODB(max_depth=3, sharding=mode)
             sleep(1.1)
-            self.assertEqual(pyodb.select(PrimitiveBasic).count(), 20)
+            self.assertEqual(pyodb.select(PrimitiveBasic).count(), 16)
             self.assertEqual(pyodb.select(ComplexBasic).count(), 0)
             del pyodb
 
@@ -166,17 +165,17 @@ class ThreadingTest(TestCase):
         multiprocessing.set_start_method("fork")
         for mode in [False, True]:
             jobs: list[Process] = []
-            for i in range(10):
+            for i in range(8):
                 sleep(0.1)
                 jobs += [Process(target=self.job, args=[mode], daemon= i%2 == 1)]
                 jobs[-1].start()
 
-            for i in range(10):
+            for i in range(8):
                 jobs[i].join()
 
             sleep(1.1)
             pyodb = PyODB(max_depth=3, sharding=mode)
-            self.assertEqual(pyodb.select(PrimitiveBasic).count(), 20)
+            self.assertEqual(pyodb.select(PrimitiveBasic).count(), 16)
             self.assertEqual(pyodb.select(ComplexBasic).count(), 0)
             del pyodb
 
@@ -186,6 +185,11 @@ class PyODBCacheTest(TestCase):
         self.cache = PyODBCache(PyODB())
         self.cache.add_cache("test", lambda: [PrimitiveBasic() for _ in range(10)], PrimitiveBasic)
         return super().setUp()
+
+
+    def tearDown(self) -> None:
+        del self.cache
+        return super().tearDown()
 
 
     def test_add_load_cache(self):

@@ -1,6 +1,5 @@
 import pickle
 import sqlite3.dbapi2 as sql
-from enum import Enum
 from pydoc import locate
 from time import time
 from types import GenericAlias, NoneType, UnionType
@@ -90,21 +89,17 @@ class MultiInsert:
 
 class _Query:
     class Where:
-        class CONNECTOR(Enum):
-            AND = " AND "
-            OR = " OR "
-
         def __init__(
                 self,
                 colname: str,
                 operator: str,
                 value: int|float|str|bool|None,
-                connector: CONNECTOR = CONNECTOR.AND
+                or_: bool = False
             ) -> None:
             self.colname = colname
             self.operator = operator
             self.value = value
-            self.connector = connector
+            self.connector = " OR " if or_ else " AND "
 
 
     _table: Table
@@ -119,100 +114,100 @@ class _Query:
         self._limit = None
 
 
-    def eq(self, **kwargs):
+    def eq(self, or_: bool = False, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float, str, bool, NoneType)):
                 raise BadTypeError(
                     f"Values must be int, float, str or bool for == check! Got: {type(val)}"
                 )
             if val is None:
-                self._wheres += [self.Where(key, " IS ", None)]
+                self._wheres += [self.Where(key, " IS ", None, or_)]
             else:
-                self._wheres += [self.Where(key, " = ", val)]
+                self._wheres += [self.Where(key, " = ", val, or_)]
         return self
 
 
-    def ne(self, **kwargs):
+    def ne(self, or_: bool = False, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float, str, bool, NoneType)):
                 raise BadTypeError(
                     f"Values must be int, float, str or bool for != check! Got: {type(val)}"
                 )
             if val is None:
-                self._wheres += [self.Where(key, " IS NOT ", None)]
+                self._wheres += [self.Where(key, " IS NOT ", None, or_)]
             else:
-                self._wheres += [self.Where(key, " != ", val)]
+                self._wheres += [self.Where(key, " != ", val, or_)]
         return self
 
 
-    def lt(self, **kwargs):
+    def lt(self, or_: bool = False, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float)):
                 raise BadTypeError(f"Values must be int or float for < check! Got: {type(val)}")
-            self._wheres += [self.Where(key, " < ", val)]
+            self._wheres += [self.Where(key, " < ", val, or_)]
         return self
 
 
-    def gt(self, **kwargs):
+    def gt(self, or_: bool = False, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float)):
                 raise BadTypeError(f"Values must be int or float for > check! Got: {type(val)}")
-            self._wheres += [self.Where(key, " > ", val)]
+            self._wheres += [self.Where(key, " > ", val, or_)]
         return self
 
 
-    def le(self, **kwargs):
+    def le(self, or_: bool = False, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float)):
                 raise BadTypeError(f"Values must be int or float for <= check! Got: {type(val)}")
-            self._wheres += [self.Where(key, " <= ", val)]
+            self._wheres += [self.Where(key, " <= ", val, or_)]
         return self
 
 
-    def ge(self, **kwargs):
+    def ge(self, or_: bool = False, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, (int, float)):
                 raise BadTypeError(f"Values must be int or float for >= check! Got: {type(val)}")
-            self._wheres += [self.Where(key, " >= ", val)]
+            self._wheres += [self.Where(key, " >= ", val, or_)]
         return self
 
 
-    def like(self, **kwargs):
+    def like(self, or_: bool = False, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, str):
                 raise BadTypeError(f"Values must be strings for like check! Got: {type(val)}")
-            self._wheres += [self.Where(key, " LIKE ", val)]
+            self._wheres += [self.Where(key, " LIKE ", val, or_)]
         return self
 
 
-    def nlike(self, **kwargs):
+    def nlike(self, or_: bool = False, **kwargs):
         for key, val in kwargs.items():
             if not isinstance(val, str):
                 raise BadTypeError(f"Values must be strings for not like check! Got: {type(val)}")
-            self._wheres += [self.Where(key, " NOT LIKE ", val)]
+            self._wheres += [self.Where(key, " NOT LIKE ", val, or_)]
         return self
 
 
     def _compile(self, start_text: str, dbconn: sql.Connection, reset: bool = True) -> sql.Cursor:
-        text = f"{start_text} \"{self._table.fqcn}\" "
+        stmt = f"{start_text} \"{self._table.fqcn}\" "
         vals = []
         if self._wheres:
-            text += "WHERE "
+            stmt += "WHERE "
             for where in self._wheres:
-                text += f"{where.colname}{where.operator}?{where.connector.value}"
+                stmt += f"{where.colname}{where.operator}?{where.connector}"
                 vals += [where.value]
-            text = text[:-len(self._wheres[-1].connector.value)]
+            stmt = stmt[:-len(self._wheres[-1].connector)]
 
-        if self._limit:
-            text += f"LIMIT {self._limit}"
+        if self._limit is not None:
+            stmt += f"LIMIT {self._limit}"
             if self._offset:
-                text += f" OFFSET {self._offset}"
+                stmt += f" OFFSET {self._offset}"
 
         if reset:
             self._wheres = []
             self._limit = None
             self._offset = None
-        return dbconn.execute(text + ";", vals)
+        return dbconn.execute(stmt + ";", vals)
 
 
 class Delete(_Query):
@@ -241,6 +236,8 @@ class Delete(_Query):
                 continue
 
             for item in res:
+                if str(item[key])[:2] == "b'" or str(item[key])[:2] == "b\"":
+                    continue
                 subtype: type = locate(item[key]) # type: ignore
                 if subtype not in self._tables:
                     raise BadTypeError("Subtype was invalid!")
@@ -292,19 +289,19 @@ class Select(_Query):
 
     def all(self) -> list[Any]:
         rows = self._compile().fetchall()
-        return [Assembler.assemble_type(self._table.base_type, self._tables, row) for row in rows]
+        return Assembler.assemble_types(self._table.base_type, self._tables, rows)
 
 
     def count(self) -> int:
+        self.gt(True, _expires_ = time())
+        self.eq(_expires_ = None)
         return self._compile("COUNT(*)").fetchone()[0]
 
 
     def _compile(self, get_what: str = "*") -> sql.Cursor:
         if not self._table.dbconn:
             raise DBConnError("Table does not have a valid database connection")
-
-        self._table.dbconn.execute(
-            f"DELETE FROM \"{self._table.fqcn}\" WHERE _expires_ < {time()};"
-        )
+        self._table.dbconn.execute(f"DELETE FROM \"{self._table.fqcn}\" WHERE _expires_ < {time()}")
         self._table.dbconn.commit()
+
         return super()._compile(f"SELECT {get_what} FROM", self._table.dbconn)

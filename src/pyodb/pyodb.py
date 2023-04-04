@@ -19,7 +19,7 @@ class PyODB:
 
     def __init__( # noqa: PLR0913
             self,
-            max_depth: int = 1,
+            max_depth: int = 0,
             pyodb_folder: str | Path = ".pyodb",
             persistent: bool = False,
             sharding: bool = False,

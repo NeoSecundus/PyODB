@@ -72,7 +72,7 @@ class Table:
 
     def _create_table_sql(self) -> str:
         sql = f"CREATE TABLE IF NOT EXISTS \"{self.fqcn}\" (_uid_ TEXT PRIMARY KEY,_parent_ TEXT,\
-_parent_table_ TEXT,_expires_ INTEGER,"
+_parent_table_ TEXT,_expires_ REAL,"
         for name, type_ in self.members.items():
             if isinstance(type_, (GenericAlias, UnionType)):
                 type_ = self._get_base_type(type_) # noqa: PLW2901

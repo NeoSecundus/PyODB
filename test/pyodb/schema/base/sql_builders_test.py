@@ -1,14 +1,11 @@
 from pathlib import Path
 from test.test_models.complex_models import ComplexMulti
-from test.test_models.primitive_models import (PrimitiveBasic,
-                                               PrimitiveContainer)
+from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from time import time
 from unittest import TestCase
 
-from src.pyodb.error import (BadTypeError, DBConnError, ExpiryError,
-                             ParentError, QueryError)
-from src.pyodb.schema.base._sql_builders import (Delete, Insert, MultiInsert,
-                                                 Select)
+from src.pyodb.error import BadTypeError, DBConnError, ExpiryError, ParentError, QueryError
+from src.pyodb.schema.base._sql_builders import Delete, Insert, MultiInsert, Select
 from src.pyodb.schema.unified_schema import UnifiedSchema
 
 

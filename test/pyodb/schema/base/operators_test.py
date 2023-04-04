@@ -1,11 +1,8 @@
 from pathlib import Path
-from test.test_models.complex_models import (ComplexBasic, ComplexContainer,
-                                             ComplexIllegal1, ComplexIllegal2,
-                                             ComplexIllegal3, ComplexMulti)
-from test.test_models.primitive_models import (PrimitiveBasic,
-                                               PrimitiveContainer,
-                                               PrimitiveIllegal1,
-                                               ReassemblyTester)
+from test.test_models.complex_models import (ComplexBasic, ComplexContainer, ComplexIllegal1,
+                                             ComplexIllegal2, ComplexIllegal3, ComplexMulti)
+from test.test_models.primitive_models import (PrimitiveBasic, PrimitiveContainer,
+                                               PrimitiveIllegal1, ReassemblyTester)
 from types import NoneType
 from unittest import TestCase
 
@@ -16,7 +13,6 @@ from src.pyodb.schema.unified_schema import UnifiedSchema
 
 class DissassemblerTest(TestCase):
     def setUp(self) -> None:
-        Disassembler.max_depth = 3
         return super().setUp()
 
 
@@ -94,11 +90,6 @@ class DissassemblerTest(TestCase):
             )
 
 
-    def test_disassembly_depth(self):
-        Disassembler.max_depth = 0
-        self.assertRaises(DisassemblyError, Disassembler.disassemble_type, ComplexBasic)
-
-
 class AssemblerTest(TestCase):
     def test_assembly_connection_error(self):
         schema = UnifiedSchema(Path(".pyodb"), 1, False)
@@ -114,10 +105,10 @@ class AssemblerTest(TestCase):
         schema._tables[PrimitiveBasic].dbconn = None
         self.assertRaises(
             DBConnError,
-            Assembler.assemble_type,
+            Assembler.assemble_types,
             base_type=ComplexBasic,
             tables=schema._tables,
-            row=row
+            rows=[row]
         )
         del schema
 
@@ -133,6 +124,6 @@ class AssemblerTest(TestCase):
             self.fail()
 
         row = table.dbconn.execute(f"SELECT * FROM \"{table.fqcn}\" LIMIT 1;").fetchone()
-        res = Assembler.assemble_type(ReassemblyTester, schema._tables, row)
-        self.assertTrue(res.reassembled)
+        res = Assembler.assemble_types(ReassemblyTester, schema._tables, [row])
+        self.assertTrue(res[0].reassembled)
         del schema

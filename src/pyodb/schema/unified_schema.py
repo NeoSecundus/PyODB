@@ -9,10 +9,7 @@ class UnifiedSchema(BaseSchema):
     SAVE_NAME = "unified_schema"
 
     def __init__(self, base_path: Path, max_depth: int, persistent: bool) -> None:
-        self._dbconn = sql.connect(
-            (base_path / "pyodb.db").as_posix(),
-            check_same_thread=True
-        )
+        self._dbconn = self._create_dbconn(base_path / "pyodb.db")
         self._dbconn.row_factory = sql.Row
         super().__init__(base_path, max_depth, persistent)
 
@@ -35,6 +32,8 @@ class UnifiedSchema(BaseSchema):
 
         del self._tables
         (self._base_path / "pyodb.db").unlink(True)
+        (self._base_path / "pyodb.db-shm").unlink(True)
+        (self._base_path / "pyodb.db-wal").unlink(True)
         (self._base_path / self.SAVE_NAME).unlink(True)
 
 

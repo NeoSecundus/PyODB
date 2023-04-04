@@ -43,7 +43,7 @@ class PrimitiveBasic:
     @staticmethod
     def get_create_table_sql() -> str:
         return "CREATE TABLE IF NOT EXISTS \"test.test_models.primitive_models.PrimitiveBasic\" (\
-_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_expires_ INTEGER,\
+_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_expires_ REAL,\
 integer INTEGER NOT NULL,number REAL,text TEXT NOT NULL,truth INTEGER NOT NULL,\
 _private REAL NOT NULL);"
 
@@ -119,7 +119,7 @@ class PrimitiveContainer:
     @staticmethod
     def get_create_table_sql() -> str:
         return "CREATE TABLE IF NOT EXISTS \"test.test_models.primitive_models.PrimitiveContainer\" (\
-_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_expires_ INTEGER,\
+_uid_ TEXT PRIMARY KEY,_parent_ TEXT,_parent_table_ TEXT,_expires_ REAL,\
 listing BLOB NOT NULL,pset BLOB NOT NULL,ptuple BLOB,dictionary BLOB NOT NULL);"
 
 

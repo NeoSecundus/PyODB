@@ -1,11 +1,11 @@
 import pickle
 from logging import Logger
 from pathlib import Path
+from sqlite3 import Connection, connect
 from types import GenericAlias, UnionType
 from typing import Any
 
 from src.pyodb.error import DBConnError, DisassemblyError, ParentError, UnknownTypeError
-from src.pyodb.schema.base._operators import Disassembler
 from src.pyodb.schema.base._sql_builders import Delete, Insert, MultiInsert, Select
 from src.pyodb.schema.base._table import Table
 from src.pyodb.schema.base._type_defs import BASE_TYPES
@@ -20,12 +20,21 @@ class BaseSchema:
     logger: Logger | None
 
 
+    @staticmethod
+    def _create_dbconn(path: Path) -> Connection:
+        conn = connect(path.as_posix(), check_same_thread=True, isolation_level="IMMEDIATE")
+        conn.execute("pragma journal_mode = WAL;")
+        conn.execute("pragma synchronous = normal;")
+        conn.execute("pragma page_size = 2048;")
+        conn.commit()
+        return conn
+
+
     def __init__(self, base_path: Path, max_depth: int, persistent: bool) -> None:
         self._tables = {}
         self._max_depth = max_depth
         self._base_path = base_path
         self.is_persistent = persistent
-        Disassembler.max_depth = max_depth
 
 
     def is_known_type(self, obj_type: type) -> bool:
@@ -50,7 +59,7 @@ class BaseSchema:
             with save_path.open("rb") as save_file:
                 schema = pickle.load(save_file)
                 if isinstance(schema, BaseSchema):
-                    for type_, table in schema._tables.items():
+                    for type_ in schema._tables.keys():
                         self.add_type(type_)
 
 
@@ -115,7 +124,12 @@ class BaseSchema:
         return None
 
 
-    def insert(self, obj: object, expires: float | None, parent: Insert | None = None):
+    def insert(
+            self, obj: object,
+            expires: float | None,
+            parent: Insert | None = None,
+            depth: int = 0
+        ):
         if not self.is_known_type(type(obj)):
             raise UnknownTypeError(f"Tried to insert object of unknown type {type(obj)}")
 
@@ -130,9 +144,12 @@ class BaseSchema:
 
         for member in table.members.keys():
             member = getattr(obj, member) # noqa: PLW2901
-            inserter.add_val(member)
             if member and type(member) not in BASE_TYPES:
-                self.insert(member, expires, inserter)
+                if depth >= self._max_depth:
+                    inserter.add_val(pickle.dumps(member))
+                    continue
+                self.insert(member, expires, inserter, depth+1)
+            inserter.add_val(member)
         inserter.commit(table.dbconn)
 
 
@@ -149,15 +166,57 @@ class BaseSchema:
         if any(type(obj) != base_type for obj in objs):
             raise DisassemblyError("Types in inserted list must all be the same!")
 
+        subtypes: dict[type, list[tuple[object, Insert]]] = {}
         for obj in objs:
-            inserter = Insert(table.name, None, None, expires)
+            inserter = Insert(table.fqcn, None, None, expires)
 
             for member in table.members.keys():
                 member = getattr(obj, member) # noqa: PLW2901
+                membertype = type(member)
+                if member and membertype not in BASE_TYPES:
+                    if self._max_depth == 0:
+                        inserter.add_val(pickle.dumps(member))
+                        continue
+
+                    if membertype not in subtypes:
+                        subtypes[membertype] = []
+                    subtypes[membertype] += [(member, inserter)]
                 inserter.add_val(member)
-                if member and type(member) not in BASE_TYPES:
-                    self.insert(member, expires, inserter)
             multi_inserter += inserter
+
+        for sub in subtypes.values():
+            self._insert_many(sub, expires, 1)
+        multi_inserter.commit(table.dbconn)
+
+
+    def _insert_many(self, objs: list[tuple[object, Insert]], expires: float | None, depth: int):
+        base_type = type(objs[0][0])
+
+        table = self._tables[base_type]
+        if not table.dbconn:
+            raise DBConnError("Table has no valid connection to a database")
+        multi_inserter = MultiInsert(table.fqcn)
+
+        subtypes: dict[type, list[tuple[object, Insert]]] = {}
+        for obj in objs:
+            inserter = Insert(table.fqcn, obj[1].uid, obj[1].table_name, expires)
+
+            for member in table.members.keys():
+                member = getattr(obj[0], member) # noqa: PLW2901
+                membertype = type(member)
+                if member and membertype not in BASE_TYPES:
+                    if depth >= self._max_depth:
+                        inserter.add_val(pickle.dumps(member))
+                        continue
+
+                    if membertype not in subtypes:
+                        subtypes[membertype] = []
+                    subtypes[membertype] += [(member, inserter)]
+                inserter.add_val(member)
+            multi_inserter += inserter
+
+        for sub in subtypes.values():
+            self._insert_many(sub, expires, depth+1)
         multi_inserter.commit(table.dbconn)
 
 
@@ -182,14 +241,14 @@ class BaseSchema:
 
     @property
     def max_depth(self) -> int:
-        return Disassembler.max_depth
+        return self._max_depth
 
 
     @max_depth.setter
     def max_depth(self, val: int):
         if val < 0:
             raise ValueError("max_depth must be >= 0!")
-        Disassembler.max_depth = val
+        self._max_depth = val
 
 
     @property
