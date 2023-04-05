@@ -96,6 +96,7 @@ class AssemblerTest(TestCase):
         schema.add_type(ComplexBasic)
         pbs = [ComplexBasic() for _ in range(10)]
         schema.insert_many(pbs, None)
+        schema.max_depth = 2
 
         table = schema._tables[ComplexBasic]
         if not table.dbconn:
@@ -109,6 +110,20 @@ class AssemblerTest(TestCase):
             base_type=ComplexBasic,
             tables=schema._tables,
             rows=[row]
+        )
+        self.assertRaises(
+            DBConnError,
+            Assembler.assemble_type,
+            base_type=ComplexBasic,
+            tables=schema._tables,
+            row=row
+        )
+
+        self.assertRaises(
+            DBConnError,
+            schema.insert_many,
+            objs=[ComplexBasic()],
+            expires=None
         )
         del schema
 

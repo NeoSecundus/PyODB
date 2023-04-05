@@ -4,6 +4,7 @@ import threading
 from logging import Logger
 from multiprocessing import Process
 from test.test_models.complex_models import ComplexBasic, ComplexMulti
+from test.test_models.high_complex_models import HighComplexL3
 from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from time import sleep, time
 from unittest import TestCase
@@ -119,6 +120,16 @@ class PyODBTest(TestCase):
         sleep(2)
 
         self.assertEqual(len(self.pyodb.select(PrimitiveBasic).all()), 3)
+
+
+    def test_highly_complex_object(self):
+        self.pyodb.max_depth=2
+        self.pyodb.add_type(HighComplexL3)
+        hc = HighComplexL3()
+        self.pyodb.save(hc)
+        self.pyodb.save_multiple([HighComplexL3() for _ in range(9)])
+        res = self.pyodb.select(HighComplexL3).first()
+        self.assertEqual(hc, res)
 
 
 class ThreadingTest(TestCase):
