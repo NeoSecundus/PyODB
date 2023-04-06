@@ -19,6 +19,20 @@ class Assembler:
             tables: dict[type, Table],
             parent: str
         ) -> dict[str, object]:
+        """
+        Get the rows for the subtypes of the table with the given parent id.
+
+        Args:
+            table (Table): The table from which to retrieve the rows.
+            tables (dict[type, Table]): Dictionary mapping the types to their corresponding tables.
+            parent (str): The parent id used to retrieve the rows.
+
+        Returns:
+            dict[str, object]: A dictionary containing the retrieved rows.
+
+        Raises:
+            DBConnError: If the table does not have a valid database connection.
+        """
         if not table.dbconn:
             raise DBConnError(
                 f"Table '{table.name}' has no valid database connection!"
@@ -37,6 +51,15 @@ class Assembler:
 
     @classmethod
     def get_base_type(cls, type_: UnionType | GenericAlias) -> type:
+        """
+        Given a UnionType or a GenericAlias, this method returns the most basic type.
+
+        Args:
+            type_ (UnionType | GenericAlias): A UnionType or a GenericAlias.
+
+        Returns:
+            type: The base type of the given type.
+        """
         if isinstance(type_, UnionType):
             args = type_.__args__
             subtype = args[0] if not isinstance(args[0], NoneType) else args[1]
@@ -56,6 +79,17 @@ class Assembler:
             tables: dict[type, Table],
             rows: list[sql.Row]
         ) -> list[Any]:
+        """
+        Assemble multiple objects of the given type from SQL rows.
+
+        Args:
+            base_type (type): The type of the object to assemble.
+            tables (dict[type, Table]): A dictionary of type -> Table mappings.
+            rows (list[sql.Row]): The SQL rows to assemble the objects from.
+
+        Returns:
+            Any: An instance of the given type, populated with values from the SQL row.
+        """
         table = tables[base_type]
         objs = []
         subrows: dict[type, dict[str, object]] = {}
@@ -96,6 +130,20 @@ class Assembler:
 
     @classmethod
     def assemble_type(cls, base_type: type, tables: dict[type, Table], row: sql.Row) -> Any:
+        """
+        Assemble a single object of the given type from a single SQL row.
+
+        Args:
+            base_type (type): The type of the object to assemble.
+            tables (dict[type, Table]): A dictionary of type -> Table mappings.
+            row (sql.Row): The SQL row to assemble the object from.
+
+        Returns:
+            Any: An instance of the given type, populated with values from the SQL row.
+
+        Raises:
+            DBConnError: In case a sub-table does not have a valid database connection.
+        """
         table = tables[base_type]
         obj = object.__new__(base_type)
         for name, type_ in table.members.items():
@@ -133,6 +181,19 @@ class Assembler:
 class Disassembler:
     @classmethod
     def _disassemble_union_type(cls, type_: UnionType) -> list[Table]:
+        """
+        Given a UnionType object, returns a list of Table objects associated with the input type.
+
+        Args:
+            type_: A UnionType object.
+
+        Returns:
+            A list of Table objects associated with each type of the Union.
+
+        Raises:
+            MixedTypesError: If the input type is a UnionType with mixed primitive and custom type
+            annotations or multiple primitives.
+        """
         tables = []
         if any([t in BASE_TYPES for t in type_.__args__]):
             raise MixedTypesError(
@@ -149,6 +210,21 @@ or multiple primitives! Got: {type_}"
 
     @classmethod
     def disassemble_type(cls, obj_type: type) -> list[Table]:
+        """Disassembles a custom object type into a list of tables that represent the object's
+        structure in the database.
+
+        Args:
+            obj_type (type): A custom object type to be disassembled.
+
+        Returns:
+            list[Table]: A list of Table objects representing the structure of the disassembled
+                object type. Each Table object represents a table in the database, and its
+                attributes represent the columns in that table.
+
+        Raises:
+            DisassemblyError: If obj_type is Any, NoneType, a primitive type or the passed argument
+                is not a type at all.
+        """
         if obj_type is Any or obj_type is NoneType or obj_type in BASE_TYPES:
             raise DisassemblyError("'Any', 'None' and 'Primitive' types are not supported!")
 

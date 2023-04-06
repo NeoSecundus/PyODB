@@ -13,6 +13,49 @@ from src.pyodb.schema.unified_schema import UnifiedSchema
 
 
 class PyODB:
+    """
+    A persistent object database for Python based on SQLite3.
+
+    Values of your classes can be saved by using either attribute annotations:
+    ```python
+    class MyClass:
+        save_me: str
+        _me_too: int | None
+    ```
+
+    OR a dictionary named `__odb_members__` containing the wanted attributes + types:
+    ```python
+    class MyClass:
+        __odb_members__ = {
+            "save_me": str,
+            "_me_too": int | None
+        }
+    ```
+
+    In case there are things that need to be done after the basic re-assembly you can define a
+    method called __odb_reassemble__ which is run post assembly:
+
+    ```python
+    class MyClass:
+        ...
+        def __odb_reassemble__(self):
+            self.was_reassembled = True
+            self.some_session = NewSession()
+    ```
+
+    Args:
+        max_depth (int, optional): Maximum recursion depth. Defaults to 0.
+        pyodb_folder (str | Path, optional): Folder where the database is stored.
+            Defaults to ".pyodb".
+        persistent (bool, optional): Whether the database should be persistent after closing.
+            Defaults to False.
+        sharding (bool, optional): Whether to use sharding.
+            Defaults to False.
+        write_log (bool, optional): Whether to enable logging.
+            Defaults to True.
+        log_to_console (bool, optional): Whether to output logs in the console as well.
+            Defaults to False.
+    """
     _logger: logging.Logger | None
     _schema: ShardSchema | UnifiedSchema
 
@@ -73,6 +116,7 @@ class PyODB:
 
     @property
     def max_depth(self) -> int:
+        """Maximum recursion depth."""
         return self._schema.max_depth
 
 
@@ -82,6 +126,13 @@ class PyODB:
 
 
     def save(self, obj: object, expires: float | None = None):
+        """Saves object to the database. Adds type in case it is not known.
+
+        Args:
+            obj (object): The object to save.
+            expires (float | None, optional): When the object expires and gets removed from the
+                database. Defaults to None.
+        """
         obj_type = type(obj)
         if self._logger:
             self._logger.debug(f"Saving object of type {obj_type}")
@@ -93,33 +144,88 @@ class PyODB:
         self._schema.insert(obj, expires)
 
 
-    def save_multiple(self, obj: list[object], expires: float | None = None):
-        if not obj:
+    def save_multiple(self, objs: list[object], expires: float | None = None):
+        """Saves multiple objects to the database. Does not add the type beforehand unlike `save`!
+
+        Args:
+            obj (list[object]): The objects to save.
+            expires (float | None, optional): When the object expires and gets removed from the
+                database. Defaults to None.
+        """
+        if not objs:
             return
-        self._schema.insert_many(obj, expires)
+        self._schema.insert_many(objs, expires)
 
 
     def remove_type(self, type_: type):
+        """Completely removes a type and all sub-types from the database.
+
+        Args:
+            type_ (type): The type to remove.
+
+        Raises:
+            ParentError: Thrown in case another parent table depends on it.
+        """
         self._schema.remove_type(type_)
 
 
     def add_type(self, type_: type):
+        """Adds a new type to the database schema.
+        Does not accept python primitives like int, float, list or dict.
+        This might be necessary in some special cases or before using the `insert_multiple` method.
+
+        Args:
+            type_ (type): The type to add.
+        """
         self._schema.add_type(type_)
 
 
     def select(self, type_: type) -> Select:
+        """Returns a Select object for the given type. The Select object can be used to query the
+        database and retrieve objects of the given type.
+
+        Args:
+            type_ (type): The type of the object to build the query for.
+
+        Returns:
+            Select: A Select object for the given type.
+
+        Raises:
+            UnknownTypeError: If the given type is not known to the schema.
+        """
         return self._schema.select(type_)
 
 
     def delete(self, type_: type) -> Delete:
+        """Returns a Delete object for the given type. The Delete object can be used to remove
+        objects of the given type from the database.
+
+        Args:
+            type_ (type): The type of the object to build the delete for.
+
+        Returns:
+            Delete: A Delete object for the given type.
+
+        Raises:
+            UnknownTypeError: If the given type is not known to the database.
+        """
         return self._schema.delete(type_)
 
 
     def clear(self):
+        """Completely clears the database but keeps the table definitions."""
         self._schema.clear()
 
 
     def contains_type(self, type_: type) -> bool:
+        """Check whether the given type is known by the schema.
+
+        Args:
+            type_ (type): The type to check for.
+
+        Returns:
+            bool: True if contained in schema, else False
+        """
         if not isinstance(type_, type):
             raise BadTypeError("Argument 'type_' must be a non-union and non-generic type!")
         return self._schema.is_known_type(type_)
@@ -127,6 +233,8 @@ class PyODB:
 
     @property
     def persistent(self) -> bool:
+        """Whether the database is persistent after closing.
+        In multiprocessing/threading this should always be set to true!"""
         return self._schema.is_persistent
 
 
@@ -137,9 +245,19 @@ class PyODB:
 
 class PyODBCache:
     """Class that caches database requests and returns cached data if available.
-    Also updates the data if it is expired. Expiry times are set within the class."""
+    Also updates the data if it is expired. Expiry times are set when adding a new cache.
+
+    Args:
+        pyodb (PyODB): PyODB instance to be used for caching.
+    """
     class _CacheItem:
-        def __init__(self, data_func: Callable, data_type: type, lifetime: float) -> None:
+        """Cache-Definition containing the data function, the data type and the lifetime."""
+        def __init__(
+                self,
+                data_func: Callable,
+                data_type: type,
+                lifetime: float
+            ) -> None:
             self.data_func = data_func
             self.data_type = data_type
             self.lifetime = lifetime
@@ -155,11 +273,13 @@ class PyODBCache:
 
     @property
     def pyodb(self) -> PyODB:
+        """The internal pyodb instance"""
         return self._pyodb
 
 
     @property
     def caches(self) -> dict[str, _CacheItem]:
+        """The currently known caches"""
         return self._caches.copy()
 
 
@@ -168,44 +288,89 @@ class PyODBCache:
         self._caches = {}
 
 
-    def cache_exists(self, cache_id: str) -> bool:
-        return cache_id in self._caches
+    def cache_exists(self, cache_key: str) -> bool:
+        """Check the existance of a cache with key `cache_key`
+
+        Args:
+            cache_key (str): Key of the cache to check for.
+
+        Returns:
+            bool: True if found, else False
+        """
+        return cache_key in self._caches
+
+
+    def _dataclass_constructor(self, data: Any):
+        self.data = data
 
 
     def add_cache(
             self,
-            cache_id: str,
+            cache_key: str,
             data_func: Callable,
             data_type: type,
             expiry: int = 60,
             force: bool = False
         ):
-        if not force and self.cache_exists(cache_id):
+        """Add a new cache with the passed key.
+
+        Args:
+            cache_key (str): Unique Key of the cache.
+            data_func (Callable): A function returning a list of the specified data_type.
+            data_type (type): The data_type which is saved and returned by this cache.
+            expiry (int, optional): Expires in x seconds. Defaults to 60.
+            force (bool, optional): Forces the cache to be overridden in case it already exists.
+                Defaults to False.
+
+        Raises:
+            CacheError: Is thrown in case the cache already exists and `force` is False.
+        """
+        if self.cache_exists(cache_key) and not force:
             raise CacheError(
-                f"Cache '{cache_id}' already exists! Use 'force=True' to suppress this error."
+                f"Cache '{cache_key}' already exists! Use 'force=True' to suppress this error."
             )
 
         self.pyodb.add_type(data_type)
-        self._caches[cache_id] = self._CacheItem(data_func, data_type, expiry)
+        self._caches[cache_key] = self._CacheItem(data_func, data_type, expiry)
         if self.logger:
-            self.logger.info(f"Added cache definition for '{cache_id}'")
+            self.logger.info(f"Added cache definition for '{cache_key}'")
 
 
-    def get_data(self, cache_id: str) -> list[Any]:
-        if not self.cache_exists(cache_id):
-            raise CacheError(f"Cache with id '{cache_id}' does not exist!")
-        cache = self._caches[cache_id]
+    def get_data(self, cache_key: str, *args, **kwargs) -> list[Any]:
+        """Gets the data from the specified cache.
+
+        Accessing data via dictionary style `cache["key"]` is also possible, as long as no arguments
+        are needed for the data function.
+
+        Args:
+            cache_id (str): Id of the cache to get data from.
+
+        Raises:
+            CacheError: Cache with passed key does not exist.
+            Exception: Exception thrown in data function or when trying to save the result.
+
+        Returns:
+            list[Any]: list of cached objects.
+        """
+        if not self.cache_exists(cache_key):
+            raise CacheError(f"Cache with id '{cache_key}' does not exist!")
+        cache = self._caches[cache_key]
 
         data = self.pyodb.select(cache.data_type).all()
         if not data:
             try:
-                data = cache.data_func()
+                data = cache.data_func(*args, **kwargs)
                 self.pyodb.save_multiple(data, time() + cache.lifetime)
                 if self.logger:
-                    self.logger.debug(f"Refreshed cached {cache_id}")
-            except BaseException as err:
+                    self.logger.debug(f"Refreshed cached {cache_key}")
+            except Exception as err:
                 if self.logger:
-                    self.logger.error(f"Failed to get/refresh datacache {cache_id}! Details: {err}")
+                    self.logger.error(
+                        f"Failed to get/refresh datacache {cache_key}! Details: {err}"
+                    )
                 raise err
-
         return data
+
+
+    def __getitem__(self, key: str) -> list[Any]:
+        return self.get_data(key)

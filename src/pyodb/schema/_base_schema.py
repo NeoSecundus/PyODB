@@ -12,6 +12,18 @@ from src.pyodb.schema.base._type_defs import BASE_TYPES
 
 
 class BaseSchema:
+    """Base class for defining database schemas.
+
+    This class defines methods for creating, dropping, and modifying tables to hold objects in a
+    database. Objects are added to the schema by their respective types, which shall be defined as
+    classes with annotations to indicate the attributes of the object. The class also allows
+    querying, updating, and deleting objects in the database.
+
+    Args:
+        base_path (Path): The path to the database file.
+        max_depth (int): The maximum depth to which nested objects are inserted into the database.
+        persistent (bool): If True, the schema instance will be saved to disk upon exit.
+    """
     SAVE_NAME: str = "base_schema"
     _tables: dict[type, Table]
     _base_path: Path
@@ -22,6 +34,15 @@ class BaseSchema:
 
     @staticmethod
     def _create_dbconn(path: Path) -> Connection:
+        """Static method for creating a new database connection with standard performance boosting
+            pragmas.
+
+        Args:
+            path (Path): The path to the database file.
+
+        Returns:
+            Connection: A new connection object.
+        """
         conn = connect(path.as_posix(), check_same_thread=True, isolation_level="IMMEDIATE")
         conn.execute("pragma journal_mode = WAL;")
         conn.execute("pragma synchronous = normal;")
@@ -50,10 +71,19 @@ class BaseSchema:
 
 
     def add_type(self, base_type: type):
+        """Add a new type to the schema.
+
+        This method creates a new table in the database to hold objects of the given type and all
+            subtypes.
+
+        Args:
+            base_type (type): The type to add to the schema.
+        """
         raise NotImplementedError()
 
 
     def load_existing(self):
+        """Load existing schema definitions from disk."""
         save_path = self._base_path / self.SAVE_NAME
         if save_path.exists():
             with save_path.open("rb") as save_file:
@@ -64,6 +94,18 @@ class BaseSchema:
 
 
     def remove_type(self, base_type: type):
+        """Remove a type from the schema.
+
+        This method drops the table associated with the given type from the database. Table cannot
+        be dropped if a parent table depends on it.
+
+        Args:
+            base_type (type): The type to remove from the schema.
+
+        Raises:
+            UnknownTypeError: If the given type is not in the schema.
+            ParentError: If the given type is has a parent table in the schema.
+        """
         if not self.is_known_type(base_type):
             raise UnknownTypeError(f"Cannot remove type! Unknown type: {base_type}")
         parent = self.get_parent(base_type)
@@ -75,6 +117,13 @@ class BaseSchema:
 
 
     def _remove_type(self, previous: Table | None, base_type: type):
+        """Drops the passed table and all child tables recusively, unless child tables have
+        other parent tables.
+
+        Args:
+            previous (Table): The parent table of the current table if any.
+            base_type (type): The base_type of the table to be removed.
+        """
         if previous and (self.get_parent(base_type) or self._tables[base_type].is_parent):
             self._tables[base_type].delete_parent_entries(previous)
             return
@@ -98,6 +147,15 @@ class BaseSchema:
 
 
     def get_parent(self, base_type: type) -> type | None:
+        """
+        Returns the parent type for the given base_type, if any.
+
+        Args:
+            base_type (type): The base type to get the parent for
+
+        Returns:
+            type or None: The parent type of the given base_type, or None if no parent is found.
+        """
         if not self.is_known_type(base_type):
             raise UnknownTypeError(f"Tried to get parent of unknown type: {base_type}")
 
@@ -130,6 +188,21 @@ class BaseSchema:
             parent: Insert | None = None,
             depth: int = 0
         ):
+        """
+        Inserts an object into the database.
+
+        Args:
+            obj (object): The object to be inserted.
+            expires (float | None): The expiration time of the object.
+            parent (Insert | None, optional): The parent object (if the object is nested). Defaults
+                to None.
+            depth (int, optional): The depth of the object before pickling is used
+                (if it is nested). Defaults to 0.
+
+        Raises:
+            UnknownTypeError: In case the wanted type is not within the schema
+
+        """
         if not self.is_known_type(type(obj)):
             raise UnknownTypeError(f"Tried to insert object of unknown type {type(obj)}")
 
@@ -154,6 +227,18 @@ class BaseSchema:
 
 
     def insert_many(self, objs: list, expires: float | None):
+        """
+        Inserts a list of objects into the database. Objects must all have the same type.
+
+        Args:
+            objs (list): The list of objects to be inserted.
+            expires (float | None): The expiration time of the objects.
+
+        Raises:
+            UnknownTypeError: In case the type is not within the schema.
+            DBConnError: In case a table has no valid database connection
+            DisassemblyError: In case the objs within the list are not all of the same type.
+        """
         base_type = type(objs[0])
         if not self.is_known_type(base_type):
             raise UnknownTypeError(f"Tried to insert object of unknown type {base_type}")
@@ -190,6 +275,20 @@ class BaseSchema:
 
 
     def _insert_many(self, objs: list[tuple[object, Insert]], expires: float | None, depth: int):
+        """
+    Inserts multiple objects into the database.
+    If an object has members that are also objects, this method will recursively insert them as
+    well, up to the maximum depth allowed by the schema. Then pickling is used.
+
+    Args:
+        objs (list[tuple[object, Insert]]): A list of objects and their corresponding parent insert
+        statements.
+        expires (float | None): The expiration time for the objects.
+        depth (int): The current recursion depth of the object hierarchy.
+
+    Raises:
+        DBConnError: If the current table does not have a valid database connection.
+    """
         base_type = type(objs[0][0])
 
         table = self._tables[base_type]
@@ -221,18 +320,45 @@ class BaseSchema:
 
 
     def select(self, type_: type) -> Select:
+        """
+        Returns a `Select` object for the given type. The `Select` object can be used to query the
+        database and retrieve objects of the given type.
+
+        Args:
+            type_ (type): The type of the object to build the query for.
+
+        Returns:
+            Select: A `Select` object for the given type.
+
+        Raises:
+            UnknownTypeError: If the given type is not known to the database.
+        """
         if not self.is_known_type(type_):
             raise UnknownTypeError(f"Tried to select unknown type: {type_}")
         return Select(type_, self._tables)
 
 
     def delete(self, type_: type) -> Delete:
+        """
+        Returns a `Delete` object for the given type. The `Delete` object can be used to remove
+        objects of the given type from the database.
+
+        Args:
+            type_ (type): The type of the object to build the delete for.
+
+        Returns:
+            Delete: A `Delete` object for the given type.
+
+        Raises:
+            UnknownTypeError: If the given type is not known to the database.
+        """
         if not self.is_known_type(type_):
             raise UnknownTypeError(f"Tried to delete instance of unknown type: {type_}")
         return Delete(type_, self._tables)
 
 
     def clear(self):
+        """Deletes all objects from the database but keeps the table definitions."""
         for table in self._tables.values():
             if not table.dbconn or not table.is_parent:
                 continue
@@ -258,6 +384,7 @@ class BaseSchema:
 
 
     def _save_schema(self):
+        """Pickle schema and save to the base folder"""
         with open(self._base_path / self.SAVE_NAME, "wb") as file:
             pickle.dump(self, file)
 
