@@ -244,7 +244,7 @@ class PyODB:
 
 
 class PyODBCache:
-    """Class that caches database requests and returns cached data if available.
+    """Class that caches arbitrary data and returns cached data if available.
     Also updates the data if it is expired. Expiry times are set when adding a new cache.
 
     Args:
@@ -256,11 +256,27 @@ class PyODBCache:
                 self,
                 data_func: Callable,
                 data_type: type,
-                lifetime: float
+                lifetime: float,
+                dataclass: type
             ) -> None:
             self.data_func = data_func
             self.data_type = data_type
             self.lifetime = lifetime
+            self.dataclass = dataclass
+            self.data = []
+            self.expires = 0
+
+
+        def get_data(self):
+            if self.expires < time():
+                self.data = []
+                return None
+            return self.data
+
+
+        def set_data(self, data: list, expires: float):
+            self.data = data
+            self.expires = expires
 
 
     _caches: dict[str, _CacheItem]
@@ -300,8 +316,10 @@ class PyODBCache:
         return cache_key in self._caches
 
 
-    def _dataclass_constructor(self, data: Any):
-        self.data = data
+    @staticmethod
+    def _dataclass_constructor(self_, data: Any, expires: float):
+        self_.data = data
+        self_.expires = expires
 
 
     def add_cache(
@@ -309,7 +327,7 @@ class PyODBCache:
             cache_key: str,
             data_func: Callable,
             data_type: type,
-            expiry: int = 60,
+            lifetime: float = 60,
             force: bool = False
         ):
         """Add a new cache with the passed key.
@@ -317,21 +335,29 @@ class PyODBCache:
         Args:
             cache_key (str): Unique Key of the cache.
             data_func (Callable): A function returning a list of the specified data_type.
-            data_type (type): The data_type which is saved and returned by this cache.
-            expiry (int, optional): Expires in x seconds. Defaults to 60.
+            data_type (type): The type which is saved by this cache and returned by the data_func.
+            lifetime (float, optional): Cached data expires in `lifetime` seconds. Defaults to 60.
             force (bool, optional): Forces the cache to be overridden in case it already exists.
                 Defaults to False.
 
         Raises:
             CacheError: Is thrown in case the cache already exists and `force` is False.
         """
-        if self.cache_exists(cache_key) and not force:
-            raise CacheError(
-                f"Cache '{cache_key}' already exists! Use 'force=True' to suppress this error."
-            )
+        if self.cache_exists(cache_key):
+            if not force:
+                raise CacheError(
+                    f"Cache '{cache_key}' already exists! Use 'force=True' to suppress this error."
+                )
+            else:
+                self.pyodb.remove_type(self.caches[cache_key].dataclass)
 
-        self.pyodb.add_type(data_type)
-        self._caches[cache_key] = self._CacheItem(data_func, data_type, expiry)
+        dataclass = type(f"PyODBCache_{data_type.__name__}", (), {
+                "__init__": self._dataclass_constructor,
+                "__annotations__": {"data": data_type | None, "expires": float}
+            }
+        )
+        self.pyodb.add_type(dataclass)
+        self._caches[cache_key] = self._CacheItem(data_func, data_type, lifetime, dataclass)
         if self.logger:
             self.logger.info(f"Added cache definition for '{cache_key}'")
 
@@ -340,10 +366,12 @@ class PyODBCache:
         """Gets the data from the specified cache.
 
         Accessing data via dictionary style `cache["key"]` is also possible, as long as no arguments
-        are needed for the data function.
+        are needed for the cache's data function.
 
         Args:
             cache_id (str): Id of the cache to get data from.
+            *args: Will be passed to the cache's data function
+            **kwargs: Will be passed to the cache's data function
 
         Raises:
             CacheError: Cache with passed key does not exist.
@@ -356,20 +384,32 @@ class PyODBCache:
             raise CacheError(f"Cache with id '{cache_key}' does not exist!")
         cache = self._caches[cache_key]
 
-        data = self.pyodb.select(cache.data_type).all()
-        if not data:
-            try:
-                data = cache.data_func(*args, **kwargs)
-                self.pyodb.save_multiple(data, time() + cache.lifetime)
-                if self.logger:
-                    self.logger.debug(f"Refreshed cached {cache_key}")
-            except Exception as err:
-                if self.logger:
-                    self.logger.error(
-                        f"Failed to get/refresh datacache {cache_key}! Details: {err}"
-                    )
-                raise err
-        return data
+        # Try to get data from in-memory cache
+        data = cache.get_data()
+        if data is not None:
+            return data
+
+        # Try to get data from database
+        db_res = self.pyodb.select(cache.dataclass).all()
+        data = [dp.data for dp in db_res]
+        if data:
+            cache.set_data(data, db_res[0].expires)
+            return data
+
+        try:
+            data = cache.data_func(*args, **kwargs)
+            expires = time() + cache.lifetime
+            self.pyodb.save_multiple([cache.dataclass(dp, expires) for dp in data], expires)
+            cache.set_data(data, expires)
+            if self.logger:
+                self.logger.debug(f"Refreshed cached {cache_key}")
+            return data
+        except Exception as err:
+            if self.logger:
+                self.logger.error(
+                    f"Failed to get/refresh datacache {cache_key}! Details: {err}"
+                )
+            raise err
 
 
     def __getitem__(self, key: str) -> list[Any]:

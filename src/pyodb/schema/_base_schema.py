@@ -1,9 +1,8 @@
 import pickle
 from logging import Logger
 from pathlib import Path
-from sqlite3 import Connection, connect
+from sqlite3 import Connection, OperationalError, Row, connect
 from types import GenericAlias, UnionType
-from typing import Any
 
 from src.pyodb.error import DBConnError, DisassemblyError, ParentError, UnknownTypeError
 from src.pyodb.schema.base._sql_builders import Delete, Insert, MultiInsert, Select
@@ -24,7 +23,6 @@ class BaseSchema:
         max_depth (int): The maximum depth to which nested objects are inserted into the database.
         persistent (bool): If True, the schema instance will be saved to disk upon exit.
     """
-    SAVE_NAME: str = "base_schema"
     _tables: dict[type, Table]
     _base_path: Path
     _max_depth: int
@@ -44,10 +42,18 @@ class BaseSchema:
             Connection: A new connection object.
         """
         conn = connect(path.as_posix(), check_same_thread=True, isolation_level="IMMEDIATE")
-        conn.execute("pragma journal_mode = WAL;")
-        conn.execute("pragma synchronous = normal;")
-        conn.execute("pragma page_size = 2048;")
-        conn.commit()
+        try:
+            conn.execute("pragma journal_mode = WAL;")
+            conn.execute("pragma synchronous = normal;")
+            conn.execute("pragma page_size = 2048;")
+            conn.commit()
+        except OperationalError:
+            # These pragmas are only for performance
+            # They may fail because the database is locked or because they are not supported
+            # it is not critical in any case
+            pass
+
+        conn.row_factory = Row
         return conn
 
 
@@ -80,17 +86,6 @@ class BaseSchema:
             base_type (type): The type to add to the schema.
         """
         raise NotImplementedError()
-
-
-    def load_existing(self):
-        """Load existing schema definitions from disk."""
-        save_path = self._base_path / self.SAVE_NAME
-        if save_path.exists():
-            with save_path.open("rb") as save_file:
-                schema = pickle.load(save_file)
-                if isinstance(schema, BaseSchema):
-                    for type_ in schema._tables.keys():
-                        self.add_type(type_)
 
 
     def remove_type(self, base_type: type):
@@ -384,14 +379,5 @@ class BaseSchema:
 
 
     def _save_schema(self):
-        """Pickle schema and save to the base folder"""
-        with open(self._base_path / self.SAVE_NAME, "wb") as file:
-            pickle.dump(self, file)
-
-
-    def __getstate__(self) -> dict[str, Any]:
-        state = vars(self).copy()
-        for key in state["_tables"].keys():
-            state["_tables"][key].dbconn = None
-        del state["logger"]
-        return state
+        """Save schema to the database for later re-loads"""
+        raise NotImplementedError()

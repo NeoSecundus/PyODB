@@ -91,7 +91,7 @@ class MultiInsert:
         self._table_name = table_name
 
 
-    def __add__(self, other: object) -> None:
+    def __add__(self, other: object):
         """
         Adds an Insert or MultiInsert object to the batch.
 
@@ -513,10 +513,15 @@ class Select(_Query):
         Returns the first result of the query as an object of the base type of the table.
 
         Returns:
-            Any: An object of the base type of the table representing the first result.
+            Any: An object of the base type of the table representing the first result or None if
+                no table was found.
         """
         if self._limit:
             self._limit = 1
+
+        row = self._compile().fetchone()
+        if row is None:
+            return None
 
         return Assembler.assemble_type(
             self._table.base_type, self._tables, self._compile().fetchone()

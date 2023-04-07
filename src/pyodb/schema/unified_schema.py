@@ -1,16 +1,13 @@
-import sqlite3.dbapi2 as sql
 from pathlib import Path
 
 from src.pyodb.schema._base_schema import BaseSchema
 from src.pyodb.schema.base._operators import Disassembler
+from src.pyodb.schema.base._table import Table
 
 
 class UnifiedSchema(BaseSchema):
-    SAVE_NAME = "unified_schema"
-
     def __init__(self, base_path: Path, max_depth: int, persistent: bool) -> None:
         self._dbconn = self._create_dbconn(base_path / "pyodb.db")
-        self._dbconn.row_factory = sql.Row
         super().__init__(base_path, max_depth, persistent)
 
     def add_type(self, base_type: type):
@@ -24,6 +21,22 @@ class UnifiedSchema(BaseSchema):
         self._tables[base_type].is_parent = True
 
 
+    def load_existing(self):
+        self.add_type(Table)
+        old_tables: list[Table] = self.select(Table).all()
+        for old_table in old_tables:
+            self.add_type(old_table.base_type)
+            self._tables[old_table.base_type].dbconn = self._dbconn
+            self._tables[old_table.base_type].is_parent = old_table.is_parent
+
+
+    def _save_schema(self):
+        self.add_type(Table)
+        self.delete(Table).commit()
+        self.max_depth = 0
+        self.insert_many(list(self._tables.values()), None)
+
+
     def __del__(self):
         if self.is_persistent:
             self._dbconn = None
@@ -34,9 +47,3 @@ class UnifiedSchema(BaseSchema):
         (self._base_path / "pyodb.db").unlink(True)
         (self._base_path / "pyodb.db-shm").unlink(True)
         (self._base_path / "pyodb.db-wal").unlink(True)
-        (self._base_path / self.SAVE_NAME).unlink(True)
-
-
-    def __setstate__(self, state: dict):
-        self.__dict__ |= state
-        self.logger = None

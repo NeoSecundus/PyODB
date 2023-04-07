@@ -118,10 +118,7 @@ class Assembler:
 
                     if ttype not in subrows:
                         subrows[ttype] = cls._get_sub_rows(tables[ttype], tables, table.fqcn)
-                    try:
-                        setattr(obj, name, subrows[ttype][row["_uid_"]])
-                    except KeyError:
-                        setattr(obj, name, None)
+                    setattr(obj, name, subrows[ttype][row["_uid_"]])
             if "__odb_reassemble__" in base_type.__dict__:
                 obj.__odb_reassemble__()
             objs += [obj]
@@ -245,8 +242,9 @@ or multiple primitives! Got: {type_}"
 
         for key, type_ in members.items():
             tables[0].add_member(key, type_)
-            if isinstance(type_, GenericAlias):
+            if isinstance(type_, GenericAlias) or type_ is type:
                 continue
+
 
             if type_ not in BASE_TYPES:
                 if isinstance(type_, UnionType):

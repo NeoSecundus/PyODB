@@ -9,7 +9,7 @@ from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from time import sleep, time
 from unittest import TestCase
 
-from src.pyodb.error import BadTypeError, CacheError
+from src.pyodb.error import BadTypeError, CacheError, PyODBError
 from src.pyodb.pyodb import PyODB, PyODBCache
 
 
@@ -20,7 +20,8 @@ class PyODBTest(TestCase):
 
 
     def tearDown(self) -> None:
-        del self.pyodb
+        if "pyodb" in vars(self):
+            del self.pyodb
         return super().tearDown()
 
 
@@ -110,7 +111,7 @@ class PyODBTest(TestCase):
         del self.pyodb
 
         self.pyodb = PyODB()
-        self.assertEqual({}, self.pyodb._schema._tables)
+        self.assertEqual(1, len(self.pyodb._schema._tables))
 
 
     def test_expires(self):
@@ -154,6 +155,27 @@ class ThreadingTest(TestCase):
         del pyodb
 
 
+    def cache_job(self, sharding: bool):
+        random.seed = time() - int(time()-0.5)
+        cache = PyODBCache(PyODB(max_depth=3, persistent=True, sharding=sharding))
+        sleep(random.random()/10 + 0.05)
+
+        cache.add_cache("test", lambda: [ComplexBasic() for _ in range(100)], ComplexBasic, 5)
+        sleep(random.random()/10 + 0.05)
+
+        cache["test"]
+        sleep(random.random()/10 + 0.05)
+
+        cache["test"]
+        sleep(random.random()/10 + 0.05)
+
+        cache.add_cache("test2", lambda: [PrimitiveBasic() for _ in range(100)], PrimitiveBasic, 5)
+        sleep(random.random()/10 + 0.05)
+
+        cache["test2"]
+        del cache
+
+
     def test_concurrency(self):
         for mode in [False, True]:
             jobs: list[threading.Thread] = []
@@ -188,6 +210,29 @@ class ThreadingTest(TestCase):
             pyodb = PyODB(max_depth=3, sharding=mode)
             self.assertEqual(pyodb.select(PrimitiveBasic).count(), 16)
             self.assertEqual(pyodb.select(ComplexBasic).count(), 0)
+            del pyodb
+
+
+    def test_multiprocessing_cache(self):
+        multiprocessing.set_start_method("fork", force=True)
+        for mode in [False, True]:
+            jobs: list[Process] = []
+            for i in range(8):
+                jobs += [Process(target=self.cache_job, args=[mode], daemon= i%2 == 1)]
+                jobs[-1].start()
+                sleep(0.2)
+                if i == 0:
+                    sleep(0.6)
+
+            for i in range(8):
+                jobs[i].join()
+
+            sleep(1.1)
+            pyodb = PyODB(max_depth=3, sharding=mode)
+            pyodb.add_type(PrimitiveBasic)
+            pyodb.add_type(ComplexBasic)
+            self.assertEqual(pyodb.select(PrimitiveBasic).count(), 200)
+            self.assertEqual(pyodb.select(ComplexBasic).count(), 100)
             del pyodb
 
 
@@ -244,3 +289,36 @@ class PyODBCacheTest(TestCase):
             PrimitiveBasic
         )
         self.assertRaises(ValueError, self.cache.get_data, "error")
+
+
+    def test_async_loading(self):
+        self.cache.add_cache(
+            "test",
+            lambda: [PrimitiveBasic() for _ in range(100)],
+            PrimitiveBasic,
+            lifetime=1,
+            force=True
+        )
+        self.assertEqual(len(self.cache["test"]), 100)
+        cache2 = PyODBCache(PyODB(1))
+
+        cache2.add_cache(
+            "test",
+            lambda: [PrimitiveBasic() for _ in range(200)],
+            PrimitiveBasic,
+            lifetime=1
+        )
+        self.assertEqual(len(cache2["test"]), 100)
+        sleep(1)
+
+        self.assertEqual(len(cache2["test"]), 200)
+        self.assertEqual(len(self.cache["test"]), 200)
+        self.assertEqual(len(self.cache["test"]), 200)
+        del cache2
+
+
+class ErrorTest(TestCase):
+    def test_str(self):
+        msg = "This is a message"
+        err = PyODBError("This is a message")
+        self.assertEqual(msg, str(err))

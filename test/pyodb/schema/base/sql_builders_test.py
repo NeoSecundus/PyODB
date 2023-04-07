@@ -143,7 +143,7 @@ class SelectTest(TestCase):
 
 
     def test_compile_one_errors(self):
-        query = Select(PrimitiveBasic, self.schema._tables).limit(2)
+        query = Select(PrimitiveBasic, self.schema._tables)
         self.assertRaises(QueryError, query.one)
         self.assertRaises(QueryError, query.eq(text = None).one)
         query._table.dbconn = None
@@ -151,9 +151,17 @@ class SelectTest(TestCase):
 
 
     def test_first(self):
-        query = Select(PrimitiveBasic, self.schema._tables).limit(2)
-        res = query.first()
+        res = self.schema.select(PrimitiveBasic).limit(5).first()
         self.assertEqual(type(res), PrimitiveBasic)
+        self.assertEqual(res, self.pbs[0])
+
+        self.schema.clear()
+        res = self.schema.select(PrimitiveBasic).first()
+        self.assertIsNone(res)
+
+
+    def test_one(self):
+        res = self.schema.select(PrimitiveBasic).eq(text = self.pbs[0].text).limit(3).one()
         self.assertEqual(res, self.pbs[0])
 
 

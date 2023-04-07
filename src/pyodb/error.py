@@ -11,6 +11,10 @@ class PyODBError(Exception):
         cls._logger = logger
 
 
+    def __str__(self) -> str:
+        return self.msg
+
+
     def __init__(self, msg: str) -> None:
         if self._logger:
             self._logger.error(self.__class__.__name__ + " -> " + msg)

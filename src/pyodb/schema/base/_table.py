@@ -20,14 +20,13 @@ class Table:
     _members: dict[str, type | UnionType | GenericAlias]
     base_type: type
     is_parent: bool
-    dbconn: sql.Connection | None
 
 
     def __init__(self, base_type: type, is_parent: bool = False) -> None:
         self._members = {}
         self.base_type = base_type
         self.is_parent = is_parent
-        self.dbconn = None
+        self.dbconn: sql.Connection | None = None
 
 
     def add_member(self, name: str, type_: type | UnionType | GenericAlias):

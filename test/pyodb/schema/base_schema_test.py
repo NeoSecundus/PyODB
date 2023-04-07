@@ -1,13 +1,10 @@
 import sqlite3 as sql
 from pathlib import Path
-from test.test_models.complex_models import (ComplexBasic, ComplexContainer,
-                                             ComplexMulti)
-from test.test_models.primitive_models import (PrimitiveBasic,
-                                               PrimitiveContainer)
+from test.test_models.complex_models import ComplexBasic, ComplexContainer, ComplexMulti
+from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from unittest import TestCase
 
-from src.pyodb.error import (BadTypeError, DBConnError, DisassemblyError,
-                             ParentError, UnknownTypeError)
+from src.pyodb.error import DBConnError, DisassemblyError, ParentError, UnknownTypeError
 from src.pyodb.schema._base_schema import BaseSchema
 from src.pyodb.schema.base._operators import Disassembler
 from src.pyodb.schema.base._sql_builders import Delete, Select
@@ -43,6 +40,7 @@ class BaseSchemaTest(TestCase):
 
     def test_not_implemented(self):
         self.assertRaises(NotImplementedError, self.schema.add_type, PrimitiveBasic)
+        self.assertRaises(NotImplementedError, self.schema._save_schema)
 
 
     def test_has_parent(self):
