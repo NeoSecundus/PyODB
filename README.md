@@ -4,45 +4,150 @@
 [![codecov](https://codecov.io/gh/NeoSecundus/PyODB/branch/main/graph/badge.svg?token=AEXOJTNDWZ)](https://codecov.io/gh/NeoSecundus/PyODB)
 
 Python Object DataBase (PyODB) is a SQLite3 ORM library aiming to be as simple to use as possible.
-This library is supposed to be used for testing, in small projects or for local inter-process data caching.
+This library is supposed to be used for testing, in small projects, when wanting to export complex
+python data in a well structured format or for local inter-process data caching.
+
+**Basics:**
+
+- PyODB uses the python built-in SQLite3 implementation as database and has no external dependencies.
+- PyODB can take any (non-primitive) type you pass into it, extracts its members and creates a
+  database schema representing the type. Sub-types of the main type are also extracted recusively.
+- Saves instances of known types into the database and loads them using basic filtering options.
+- Also provides a caching module 'PyODBCache' which may be used for inter-process data caching.
+  > When using multiprocessing excessively race conditions may occur.
+- All data (cache & non-cache) can persist or be deleted upon closing of the process.
 
 1. [Setup](#setup)
-2. [Usage](#usage)
+2. [Basic Usage](#basic-usage)
+   1. [More in-depth examples](#more-in-depth-examples)
 3. [Limitations](#limitations)
 4. [How it works](#how-it-works)
    1. [Converting Primitive Types](#converting-primitive-types)
-   2. [Converting Complex and Custom Types](#converting-complex-and-custom-types)
+   2. [Converting Custom Types](#converting-custom-types)
       1. [Simple custom type](#simple-custom-type)
-      2. [Custom types contained in a list or set](#custom-types-contained-in-a-list-or-set)
-      3. [Custom types contained in a dict](#custom-types-contained-in-a-dict)
-   3. [What about dynamic types?](#what-about-dynamic-types)
-   4. [What about fields containing functions?](#what-about-fields-containing-functions)
+      2. [Custom types contained in a collection or dict](#custom-types-contained-in-a-collection-or-dict)
+   3. [Dynamic type definitions](#dynamic-type-definitions)
 
 ## Setup
 
-<<< **WIP** >>>
+There are two main ways to install the package. The simplest version is using pip:
 
-## Usage
+```bash
+pip install pyodb
+```
 
-<<< **WIP** >>>
+Since there are no external dependencies this should work without problem.
+
+Another way is to install the package from source. To do this you have to pull or download this
+repository and move into the package folder. Once inside the folder you can install the package:
+
+```bash
+pip install .
+```
+
+## Basic Usage
+
+A very basic usage example is using the library to save a simple type.
+
+To do this a custom class with some members is needed. We will use the example class below:
+
+```python
+class MyType:
+    some_data: list[str]
+    some_number: int | None
+
+    def __init__(self, number: int):
+        self.some_data = ["Hello", "World"]
+        self.some_number = number
+
+    def __repr__(self) -> str:
+        return f"MyType Number: {self.some_number}"
+```
+
+Next you can simply import pyodb and add MyType and try saving some instances:
+
+```python
+from pyodb import PyODB
+
+# Create PyODB instance with persistent data and type-definitions
+pyodb = PyODB(persistent=True)
+
+# Add type and save some instances
+pyodb.add_type(MyType)
+pyodb.save(MyType(1))
+pyodb.save_multiple([MyType(2), MyType(3), MyType(4), MyType(5)])
+```
+
+Now let's say you need the data in another process or in another python program altogether.
+
+```python
+# Types are re-loaded from the db since persistent was True
+# Note: Now, when the process exits, the data will be deleted because persistent is False by default
+pyodb = PyODB()
+
+# Get a Selector instance
+select = pyodb.select(MyType)
+
+## filter loaded instances by some_number > 2
+select.gt(some_number = 2)
+
+## Load results into result
+result = select.all()
+print(result)
+
+# The select can also be done in a one-liner
+result = pyodb.select(MyType).gt(some_number = 2).all()
+print(result)
+
+# Delete some saved entries
+deleted = pyodb.delete(MyType).gt(some_number = 2).commit()
+print(f"Deleted {deleted} entries")
+
+# Count remaining entries
+count = pyodb.select(MyType).count()
+print(f"{count} entries remaining")
+
+# Clear the database keeping the table definitions
+pyodb.clear()
+
+# Show and then remove the type definition
+print(pyodb.known_types)
+pyodb.remove_type(MyType)
+print(pyodb.known_types)
+```
+
+As you can see loading and removing data is quite simple. Basic filtering is also possible in both
+select and delete.
+
+### More in-depth examples
+
+Below are linkts to two documents containing more comprehensive examples of different functions.
+They also contain best practices regarding performance.
+
+For PyODB examples please refer to [PyODB examples](./docs/PyODBExamples.md)
+
+For PyODBCache examples please refer to [Caching examples](./docs/PyODBCacheExamples.md)
 
 ## Limitations
 
 What this library can store:
+
 - Primitive Datatypes (int, float, str, bool)
 - Lists
 - Dictionaries
 - Custom Types
 
 What this library cannot store:
+
 - Fields containing functions (maybe in the future...)
 - Fields that are dependent on external states or state changes
 
 **Important Notice:**
 
-Storing of dynamic type imported from external libraries should be avoided.
+Storing of types imported from external libraries should be avoided.
 Depending of how deep an library type is nested one single datapoint could lead to the creation of
-dozens of tables. One for every nested sub-type.
+dozens of tables. One for every nested sub-type. Additionally there may be some fields containing
+stateful connections or other illegal members.
 
 As example -> Storing a `PoolManager` from `urllib3` would result in these tables:
 - PoolManager
@@ -61,13 +166,17 @@ As example -> Storing a `PoolManager` from `urllib3` would result in these table
 This is still a very basic example. As a rule of thumb; The higher level the library the deeper the
 objects are nested on average.
 
+To prevent this the **max recursion depth** should not be set above 3. Using more than this is
+discouraged because of performance reasons as well. You can also exclude certain members by
+defining the `__odb_members__` dict containing all wanted class members.
+
 ## How it works
 
-When a python class is added to the PyODB schema the classes are converted to SQL Tables.
-These tables are then inserted into the SQLite3 database on first use.
+When a python class is added to the PyODB schema the classes are converted to SQL Tables and
+inserted into the database schema.
 
-> IMPORTANT: If a class changes between executions the table is dropped and recreated. The table's
-> data is lost.
+> IMPORTANT: If a class changes between executions the table retains the old definition.
+> It is advisable to reset the database manually in case it was persistet.
 
 The UML Diagram below shows what such a conversion looks like:
 
@@ -77,73 +186,72 @@ The UML Diagram below shows what such a conversion looks like:
 
 Primitive python datatypes are simply converted to SQL datatypes.
 
-| Python Datatype | SQL Datatype |
+| SQL Datatype | Python Datatypes |
 |-----------------|--------------|
-| int | INTEGER |
-| float | REAL |
-| bool | NUMERIC |
-| str | TEXT |
-| datetime | NUMERIC |
-| list[p] | TEXT (JSON) |
-| dict[p, p] | TEXT (JSON) |
+| INTEGER | int |
+| REAL | float |
+| NUMERIC | bool |
+| TEXT | str |
+| BLOB (pickled) | bytes, list, dict, tuple, set |
 
-*p = Primitive Datatype (float, int, str, bool)
+### Converting Custom Types
 
-### Converting Complex and Custom Types
-
-There is a certain amount of scenarios when converting complex and custom types. Below is a list of
+There is a certain amount of scenarios when converting custom types. Below is a list of
 all handled scenarios and the corresponding rules that deal with them. All of these scenarios are
 also depicted in the example diagram above.
 
-Custom and complex types are handled in the same way so only Custom Types are referenced from here
-on out.
+Henceforth Origin references the original class whose type is parsed into a SQL Table.
 
 #### Simple custom type
 
-When a simple custom type is contained by the origin class a table is created for the custom type as
-well. The custom type's table then gets a `_parent_` column which references the origin class.
+When a simple custom type is contained by the Origin a table is created for the sub-type as
+well. The sub-type's table uses a `_parent_` column which references the `_id_` of the
+Origin and a `_parent_table_` column referenceing the type/table-name of the Origin.
 
-The origin class gets a `_children_` column which contains a JSON string containing this custom type
-(or multiple) in the format: `{<Variable Name>: <Custom Type Classname>}`
+When an Origin instance is inserted the sub-type instance is saved in it's own table. The table
+which the instance is saved in is then referenced by the Origin's sub-type column. As example:
 
-#### Custom types contained in a list or set
+Here are the columns of an imaginary origin type:
 
-This case is handled very similarly to the [Simple custom type](#simple-custom-type). The only
-difference being the format of the entry within the `_children_` column. The format is changed to
-contain a `l` before the Custom Type's Class-Name to indicate that this is supposed to be a list.
-This is called a containment specifier:
-`{<Variable Name>: l<Custom Type Classname>}`
+|Column Name| Type | Content |
+|-----------|------|---------|
+| \_id_     | TEXT | OriginID |
+| subtype   | TEXT | MySubType |
 
-Sets are the same but with a `s` instead of a `l`:
-`{<Variable Name>: s<Custom Type Classname>}`
+And here are the columns of the imaginary sub-type:
 
-#### Custom types contained in a dict
+|Column Name| Type | Content |
+|-----------|------|---------|
+| \_parent_   | TEXT | OriginID |
+| \_parent_table | TEXT | Origin |
 
-Once again this case is handled similarly to the [Custom types contained in a list or set](#custom-types-contained-in-a-list-or-set).
-There are two notable differences though:
+#### Custom types contained in a collection or dict
 
-- The containment specifier is changed to a `d`
-  `{<Variable Name>: d<Custom Type Classname>}`
-- The custom type receives a `_key_` column which contains the name of it's key or a dict containing
-  the definition of the custom class that references it in the same format as the [Simple custom type](#simple-custom-type).
+Because of performance considerations and to keep my sanity all collection types and dicts are
+converted to `bytes` objects via pickle and then saved to the Database as BLOBs.
 
-### What about dynamic types?
+Collections and dicts can therefore not be loaded by other programs besides python unlike all other
+datatypes.
 
-Dynamic type definitions can be saved by PyODB.
-Only primitive datatypes must be statically defined.
+### Dynamic type definitions
+
+Dynamic type definitions (Union) of custom types can also be saved by PyODB.
+Only primitive datatypes must be unambigous.
 
 The only exception is None. Data may always be defined with None as an option.
 
 **This is allowed:**
+
 ```python
 class Person:
     name: str
     dob: int
     info: str | None
-    card: CreditCard | Bankcard | None
+    card: CreditCard | Bankcard
 ```
 
 **This is not:**
+
 ```python
 class Square:
     length: int | float
@@ -151,7 +259,3 @@ class Square:
 
 **Important Notice:**
 A table will be created for every possible Datatype!
-
-### What about fields containing functions?
-
-<<< **WIP** >>>

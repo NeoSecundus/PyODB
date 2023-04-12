@@ -44,4 +44,4 @@ odb-help - Show this help.\"
 "
 
 echo "Done!"
-echo -e "\e[33mEnter ab-help for command listing\e[0m"
+echo -e "\e[33mEnter odb-help for command listing\e[0m"

@@ -48,7 +48,7 @@ class PyODBTest(TestCase):
         self.pyodb.add_type(PrimitiveBasic)
         self.assertIn(PrimitiveBasic, self.pyodb._schema._tables)
         self.pyodb.remove_type(PrimitiveBasic)
-        self.assertNotIn(PrimitiveBasic, self.pyodb._schema._tables)
+        self.assertNotIn(PrimitiveBasic, self.pyodb.known_types)
 
 
     def test_object_functions(self):

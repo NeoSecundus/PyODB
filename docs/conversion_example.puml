@@ -25,7 +25,7 @@ package "Python Classes" as Python #cfc {
 
     class AirPlane {
         + name
-        + motors: list[Motor]
+        + motors: list[Motor] | None
     }
 
     class Motor {
@@ -44,35 +44,43 @@ package "Python Classes" as Python #cfc {
 package "SQL Tables" as SQL #ffc {
     interface "Car" as TCar {
         _id_ TEXT
-        _children_ TEXT
-            ^'{"motor": "Motor"}'
+        _parent_ TEXT | NULL
+        _parent_table_ TEXT | NULL
+        _expires_ REAL | NULL
         ..
         brand TEXT
         model TEXT
         build_date NUMERIC
+        _passengers BLOB
+        motor TEXT
     }
 
     interface "Ship" as TShip {
         _id_ TEXT
-        _children_ TEXT
-            ^'{"_motors": "dMotor"}'
+        _parent_ TEXT | NULL
+        _parent_table_ TEXT | NULL
+        _expires_ REAL | NULL
         ..
         name TEXT
         fuel_capacity REAL
+        _motors BLOB
     }
 
     interface "AirPlane" as TAirPlane {
         _id_ TEXT
-        _children_ TEXT
-            ^'{"motors": "lMotor"}'
+        _parent_ TEXT | NULL
+        _parent_table_ TEXT | NULL
+        _expires_ REAL | NULL
         ..
         name TEXT
+        motors BLOB | NULL
     }
 
     interface "Motor" as TMotor {
-        _id_     TEXT
+        _id_ TEXT
         _parent_ TEXT | NULL
-        _key_    TEXT | NULL
+        _parent_table_ TEXT | NULL
+        _expires_ REAL | NULL
         ..
         ps       REAL
         ccm      INTEGER
@@ -82,8 +90,8 @@ package "SQL Tables" as SQL #ffc {
     }
 
     TMotor -right-# TCar
-    TMotor --# TShip
-    TMotor --# TAirPlane
+    TMotor ..# TShip
+    TMotor ..# TAirPlane
 }
 
 Python -[thickness=3]up-> SQL

@@ -6,12 +6,22 @@ authors = [
 ]
 description = "Python Object DataBase (PyODB) is an ORM library aiming to be as simple to use as possible."
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+keywords = [
+    "cache", "caching", "datacache",
+    "orm", "database", "sqlite",
+    "sqlite3",
+]
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=40.8.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project.urls]
 "Homepage" = "https://github.com/NeoSecundus/PyODB"

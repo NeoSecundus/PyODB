@@ -64,7 +64,7 @@ class PyODB:
 
     def __init__( # noqa: PLR0913
             self,
-            max_depth: int = 0,
+            max_depth: int = 2,
             pyodb_folder: str | Path = ".pyodb",
             persistent: bool = False,
             sharding: bool = False,
@@ -147,6 +147,11 @@ class PyODB:
                 self._logger.info(f"Adding new type '{obj_type}'")
             self._schema.add_type(obj_type)
         self._schema.insert(obj, expires)
+
+
+    @property
+    def known_types(self) -> list[type]:
+        return [type_ for type_ in self._schema._tables.keys() if type_.__name__ != "Table"]
 
 
     def save_multiple(self, objs: list[object], expires: float | None = None):
@@ -361,7 +366,8 @@ class PyODBCache:
             lifetime: float = 60,
             force: bool = False
         ):
-        """Add a new cache with the passed key.
+        """Add a new cache identified by the passed cache_key. Data returned by the data_func must
+        be contained in a list. (Even if it is one element only)
 
         Args:
             cache_key (str): Unique Key of the cache.
@@ -402,8 +408,8 @@ class PyODBCache:
 
         Args:
             cache_id (str): Id of the cache to get data from.
-            *args: Will be passed to the cache's data function
-            **kwargs: Will be passed to the cache's data function
+            *args: Will be passed to the cache's data function if necessary
+            **kwargs: Will be passed to the cache's data function if necessary
 
         Raises:
             CacheError: Cache with passed key does not exist.
