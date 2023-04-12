@@ -30,8 +30,7 @@ class BaseSchema:
     logger: Logger | None
 
 
-    @staticmethod
-    def _create_dbconn(path: Path) -> Connection:
+    def _create_dbconn(self, path: Path) -> Connection:
         """Static method for creating a new database connection with standard performance boosting
             pragmas.
 
@@ -51,7 +50,10 @@ class BaseSchema:
             # These pragmas are only for performance
             # They may fail because the database is locked or because they are not supported
             # it is not critical in any case
-            pass
+            if self.logger:
+                self.logger.warning(
+                    "Failed to set performance pragmas. You may want to update your sqlite version."
+                )
 
         conn.row_factory = Row
         return conn
@@ -91,15 +93,16 @@ class BaseSchema:
     def remove_type(self, base_type: type):
         """Remove a type from the schema.
 
-        This method drops the table associated with the given type from the database. Table cannot
-        be dropped if a parent table depends on it.
+        This method drops the table associated with the given type from the database as well as all
+        child tables. Table cannot be dropped if a parent table depends on it.
+        Child tables are ignored if other tables depend on them.
 
         Args:
             base_type (type): The type to remove from the schema.
 
         Raises:
             UnknownTypeError: If the given type is not in the schema.
-            ParentError: If the given type is has a parent table in the schema.
+            ParentError: If the given type has a parent table in the schema.
         """
         if not self.is_known_type(base_type):
             raise UnknownTypeError(f"Cannot remove type! Unknown type: {base_type}")

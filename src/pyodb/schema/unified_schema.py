@@ -10,6 +10,7 @@ class UnifiedSchema(BaseSchema):
         self._dbconn = self._create_dbconn(base_path / "pyodb.db")
         super().__init__(base_path, max_depth, persistent)
 
+
     def add_type(self, base_type: type):
         tables = Disassembler.disassemble_type(base_type)
         for table in tables:
@@ -32,6 +33,7 @@ class UnifiedSchema(BaseSchema):
 
     def _save_schema(self):
         self.add_type(Table)
+        self._dbconn = None
         self.delete(Table).commit()
         self.max_depth = 0
         self.insert_many(list(self._tables.values()), None)
@@ -39,7 +41,6 @@ class UnifiedSchema(BaseSchema):
 
     def __del__(self):
         if self.is_persistent:
-            self._dbconn = None
             self._save_schema()
             return
 

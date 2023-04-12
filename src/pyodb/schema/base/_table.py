@@ -67,7 +67,7 @@ class Table:
             DBConnError: If the table does not have a valid connection to any database.
         """
         if not self.dbconn:
-            raise DBConnError("Table has no valid connection to any Database!")
+            raise DBConnError(f"Table '{self.name}' has no valid connection to any Database!")
         self.dbconn.execute(self._create_table_sql())
         self.dbconn.commit()
 
@@ -80,7 +80,7 @@ class Table:
             DBConnError: If the table does not have a valid connection to any database.
         """
         if not self.dbconn:
-            raise DBConnError("Table has no valid connection to any Database!")
+            raise DBConnError(f"Table '{self.name}' has no valid connection to any Database!")
         self.dbconn.execute(self._drop_table_sql())
         self.dbconn.commit()
 
@@ -96,7 +96,7 @@ class Table:
             DBConnError: If the table does not have a valid connection to a database.
         """
         if not self.dbconn:
-            raise DBConnError("Table has no valid connection to any Database!")
+            raise DBConnError(f"Table '{self.name}' has no valid connection to any Database!")
         self.dbconn.execute(f"DELETE FROM \"{self.fqcn}\" WHERE _parent_table_ = '{parent.name}'")
         self.dbconn.commit()
 

@@ -55,6 +55,8 @@ class PyODB:
             Defaults to True.
         log_to_console (bool, optional): Whether to output logs in the console as well.
             Defaults to False.
+        load_existing (bool, optional): Whether to load an existing schema or ignore it.
+            Defaults to True.
     """
     _logger: logging.Logger | None
     _schema: ShardSchema | UnifiedSchema
@@ -68,6 +70,7 @@ class PyODB:
             sharding: bool = False,
             write_log: bool = True,
             log_to_console: bool = False,
+            load_existing: bool = True
         ) -> None:
         if not isinstance(pyodb_folder, Path):
             pyodb_folder = Path(pyodb_folder)
@@ -78,7 +81,9 @@ class PyODB:
             if sharding
             else UnifiedSchema(pyodb_folder, max_depth, persistent)
         )
-        self._schema.load_existing()
+        if load_existing:
+            self._schema.load_existing()
+
         self.modify_logging(
             do_logging=write_log,
             log_folder=pyodb_folder,
@@ -248,7 +253,17 @@ class PyODBCache:
     Also updates the data if it is expired. Expiry times are set when adding a new cache.
 
     Args:
-        pyodb (PyODB): PyODB instance to be used for caching.
+        max_depth (int, optional): Maximum recursion depth. Defaults to 0.
+        pyodb_folder (str | Path, optional): Folder where the database is stored.
+            Defaults to ".pyodb".
+        persistent (bool, optional): Whether the database should be persistent after closing.
+            Defaults to False.
+        sharding (bool, optional): Whether to use sharding.
+            Defaults to False.
+        write_log (bool, optional): Whether to enable logging.
+            Defaults to True.
+        log_to_console (bool, optional): Whether to output logs in the console as well.
+            Defaults to False.
     """
     class _CacheItem:
         """Cache-Definition containing the data function, the data type and the lifetime."""
@@ -299,8 +314,24 @@ class PyODBCache:
         return self._caches.copy()
 
 
-    def __init__(self, pyodb: PyODB) -> None:
-        self._pyodb = pyodb
+    def __init__( # noqa: PLR0913
+            self,
+            max_depth: int = 0,
+            pyodb_folder: str | Path = ".pyodb",
+            persistent: bool = False,
+            sharding: bool = False,
+            write_log: bool = True,
+            log_to_console: bool = False
+        ) -> None:
+        self._pyodb = PyODB(
+            max_depth=max_depth,
+            pyodb_folder=pyodb_folder,
+            persistent=persistent,
+            sharding=sharding,
+            write_log=write_log,
+            log_to_console=log_to_console,
+            load_existing=False
+        )
         self._caches = {}
 
 
@@ -356,6 +387,7 @@ class PyODBCache:
                 "__annotations__": {"data": data_type | None, "expires": float}
             }
         )
+        globals().update({dataclass.__name__: dataclass})
         self.pyodb.add_type(dataclass)
         self._caches[cache_key] = self._CacheItem(data_func, data_type, lifetime, dataclass)
         if self.logger:

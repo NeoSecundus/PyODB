@@ -157,7 +157,7 @@ class ThreadingTest(TestCase):
 
     def cache_job(self, sharding: bool):
         random.seed = time() - int(time()-0.5)
-        cache = PyODBCache(PyODB(max_depth=3, persistent=True, sharding=sharding))
+        cache = PyODBCache(persistent=True, sharding=sharding)
         sleep(random.random()/10 + 0.05)
 
         cache.add_cache("test", lambda: [ComplexBasic() for _ in range(100)], ComplexBasic, 5)
@@ -169,7 +169,7 @@ class ThreadingTest(TestCase):
         cache["test"]
         sleep(random.random()/10 + 0.05)
 
-        cache.add_cache("test2", lambda: [PrimitiveBasic() for _ in range(100)], PrimitiveBasic, 5)
+        cache.add_cache("test2", lambda: [PrimitiveBasic() for _ in range(200)], PrimitiveBasic, 5)
         sleep(random.random()/10 + 0.05)
 
         cache["test2"]
@@ -228,17 +228,17 @@ class ThreadingTest(TestCase):
                 jobs[i].join()
 
             sleep(1.1)
-            pyodb = PyODB(max_depth=3, sharding=mode)
-            pyodb.add_type(PrimitiveBasic)
-            pyodb.add_type(ComplexBasic)
-            self.assertEqual(pyodb.select(PrimitiveBasic).count(), 200)
-            self.assertEqual(pyodb.select(ComplexBasic).count(), 100)
+            pyodb = PyODBCache(max_depth=3, sharding=mode)
+            pyodb.add_cache("test", lambda: PrimitiveBasic(), PrimitiveBasic)
+            pyodb.add_cache("test2", lambda: ComplexBasic(), ComplexBasic)
+            self.assertEqual(len(pyodb["test"]), 200)
+            self.assertEqual(len(pyodb["test2"]), 100)
             del pyodb
 
 
 class PyODBCacheTest(TestCase):
     def setUp(self) -> None:
-        self.cache = PyODBCache(PyODB())
+        self.cache = PyODBCache()
         self.cache.add_cache("test", lambda: [PrimitiveBasic() for _ in range(10)], PrimitiveBasic)
         return super().setUp()
 
@@ -300,7 +300,7 @@ class PyODBCacheTest(TestCase):
             force=True
         )
         self.assertEqual(len(self.cache["test"]), 100)
-        cache2 = PyODBCache(PyODB(1))
+        cache2 = PyODBCache()
 
         cache2.add_cache(
             "test",
