@@ -47,7 +47,7 @@ pip install .
 
 ## Basic Usage
 
-A very basic usage example is using the library to save a simple type.
+A very basic usage example is using the library to save a simple custom type and load it elsewhere.
 
 To do this a custom class with some members is needed. We will use the example class below:
 
@@ -80,12 +80,16 @@ pyodb.save_multiple([MyType(2), MyType(3), MyType(4), MyType(5)])
 
 Now let's say you need the data in another process or in another python program altogether.
 
-```python
-# Types are re-loaded from the db since persistent was True
-# Note: Now, when the process exits, the data will be deleted because persistent is False by default
-pyodb = PyODB()
+Create a new instance - types are re-loaded from the database since persistent was set to True
+> This time, when the process exits, the data will be deleted because persistent is False by default
 
-# Get a Selector instance
+```python
+pyodb = PyODB()
+```
+
+Now you can get a Selector instance wich is used to select and filter data loaded from the database.
+
+```python
 select = pyodb.select(MyType)
 
 ## filter loaded instances by some_number > 2
@@ -95,22 +99,37 @@ select.gt(some_number = 2)
 result = select.all()
 print(result)
 
-# The select can also be done in a one-liner
+```
+
+The same select can also be written as a one-liner.
+
+```python
 result = pyodb.select(MyType).gt(some_number = 2).all()
 print(result)
+```
 
-# Delete some saved entries
+You can easily delete some saved entries with the Deleter using filters like the Selector.
+
+
+```python
 deleted = pyodb.delete(MyType).gt(some_number = 2).commit()
 print(f"Deleted {deleted} entries")
 
 # Count remaining entries
 count = pyodb.select(MyType).count()
 print(f"{count} entries remaining")
+```
 
-# Clear the database keeping the table definitions
+You can also scrap all data from the database keeping the table definitions using `clear()`.
+
+```python
 pyodb.clear()
+```
 
-# Show and then remove the type definition
+Known types can also be shown and removed.
+Removing types does have some restrictions. For more information look at the [PyODB Examples](./docs/PyODBExamples.md).
+
+```python
 print(pyodb.known_types)
 pyodb.remove_type(MyType)
 print(pyodb.known_types)
@@ -122,7 +141,7 @@ select and delete.
 ### More in-depth examples
 
 Below are linkts to two documents containing more comprehensive examples of different functions.
-They also contain best practices regarding performance.
+They also contain best practices regarding performance and some possible error cases.
 
 For PyODB examples please refer to [PyODB examples](./docs/PyODBExamples.md)
 
