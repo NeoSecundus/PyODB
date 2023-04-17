@@ -1,18 +1,22 @@
+from pathlib import Path
 from test.test_models.complex_models import ComplexBasic
-from test.test_models.primitive_models import (PrimitiveBasic,
-                                               PrimitiveContainer)
+from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from unittest import TestCase
 
-from src.pyodb.error import DBConnError
-from src.pyodb.schema.base._operators import Disassembler
+from pyodb.schema.unified_schema import UnifiedSchema
 
 
 class TableTest(TestCase):
     def setUp(self) -> None:
-        Disassembler.max_depth = 2
-        self.tpbasic = Disassembler.disassemble_type(PrimitiveBasic)[0]
-        self.tpcontainer = Disassembler.disassemble_type(PrimitiveContainer)[0]
-        self.tcbasic = Disassembler.disassemble_type(ComplexBasic)[0]
+        _schema = UnifiedSchema(Path(".pyodb"), 0, False)
+        _schema.add_type(PrimitiveBasic)
+        self.tpbasic = _schema._tables[PrimitiveBasic]
+
+        _schema.add_type(PrimitiveContainer)
+        self.tpcontainer = _schema._tables[PrimitiveContainer]
+
+        _schema.add_type(ComplexBasic)
+        self.tcbasic = _schema._tables[ComplexBasic]
         return super().setUp()
 
 
@@ -35,10 +39,3 @@ class TableTest(TestCase):
     def test_fqcn(self):
         self.assertEqual(self.tpbasic.fqcn, "test.test_models.primitive_models.PrimitiveBasic")
         self.assertEqual(self.tpbasic.name, "PrimitiveBasic")
-
-
-    def test_dbconn_errors(self):
-        table = Disassembler.disassemble_type(PrimitiveBasic)[0]
-        self.assertRaises(DBConnError, table.create_table)
-        self.assertRaises(DBConnError, table.drop_table)
-        self.assertRaises(DBConnError, table.delete_parent_entries, table)

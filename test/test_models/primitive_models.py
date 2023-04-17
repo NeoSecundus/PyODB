@@ -110,10 +110,10 @@ class PrimitiveContainer:
     @staticmethod
     def get_members() -> dict:
         return {
-            "listing": list[int | float | str | bool],
-            "pset": set[int | float | str | bool],
-            "ptuple": tuple[int | float | str | bool] | None,
-            "dictionary": dict[str, int | float | str | bool],
+            "listing": list,
+            "pset": set,
+            "ptuple": tuple | None,
+            "dictionary": dict,
         }
 
     @staticmethod
@@ -149,3 +149,7 @@ class ReassemblyTester:
 
 class PrimitiveIllegal1:
     illegal: int | float
+
+
+class PrimitiveIllegal2:
+    illegal: list[float | str] | float | None

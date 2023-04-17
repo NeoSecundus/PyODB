@@ -17,7 +17,7 @@ if [[ $? == 0 ]]; then
     conda activate pyodb
 fi
 
-export PYTHONPATH="$BASEDIR"
+export PYTHONPATH="$BASEDIR/src"
 
 # Creating aliases
 alias odb-lint="ruff --config $BASEDIR/pyproject.toml $BASEDIR"

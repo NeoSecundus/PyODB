@@ -9,8 +9,8 @@ from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from time import sleep, time
 from unittest import TestCase
 
-from src.pyodb.error import BadTypeError, CacheError, PyODBError
-from src.pyodb.pyodb import PyODB, PyODBCache
+from pyodb.error import BadTypeError, CacheError, PyODBError
+from pyodb.pyodb import PyODB, PyODBCache
 
 
 class PyODBTest(TestCase):
@@ -23,14 +23,6 @@ class PyODBTest(TestCase):
         if "pyodb" in vars(self):
             del self.pyodb
         return super().tearDown()
-
-
-    def test_modify_logging(self):
-        self.pyodb.modify_logging(False)
-        self.assertIsNone(self.pyodb._logger)
-
-        self.pyodb.modify_logging(True)
-        self.assertEqual(type(self.pyodb._logger), Logger)
 
 
     def test_max_depth(self):
@@ -89,6 +81,7 @@ class PyODBTest(TestCase):
         self.pyodb = PyODB(sharding=True)
         self.pyodb.add_type(ComplexBasic)
         self.pyodb.persistent = True
+        print(self.pyodb._schema._tables)
         del self.pyodb
 
         self.pyodb = PyODB(sharding=True)
@@ -107,7 +100,6 @@ class PyODBTest(TestCase):
         self.assertIn(ComplexBasic, self.pyodb._schema._tables)
         self.assertIn(PrimitiveBasic, self.pyodb._schema._tables)
         self.assertIn(PrimitiveContainer, self.pyodb._schema._tables)
-        self.pyodb.persistent = False
         del self.pyodb
 
         self.pyodb = PyODB()
@@ -134,9 +126,10 @@ class PyODBTest(TestCase):
 
 
 class ThreadingTest(TestCase):
-    def job(self, sharding: bool):
+    def job(self, sharding: bool, pyodb: PyODB | None = None):
         random.seed = time() - int(time()-0.5)
-        pyodb = PyODB(max_depth=3, persistent=True, sharding=sharding, log_to_console=True)
+        if pyodb is None:
+            pyodb = PyODB(max_depth=3, persistent=True, sharding=sharding)
         sleep(random.random()/10 + 0.05)
 
         pyodb.add_type(PrimitiveBasic)
@@ -181,7 +174,19 @@ class ThreadingTest(TestCase):
             jobs: list[threading.Thread] = []
             for i in range(8):
                 sleep(0.1)
-                jobs += [threading.Thread(target=self.job, args=[mode], daemon= i%2 == 1)]
+                if i == 4:
+                    jobs += [
+                        threading.Thread(
+                            target=self.job,
+                            args=[
+                                mode,
+                                PyODB(max_depth=3, persistent=True, sharding=mode)
+                            ],
+                            daemon=True
+                        )
+                    ]
+                else:
+                    jobs += [threading.Thread(target=self.job, args=[mode], daemon= i%2 == 1)]
                 jobs[-1].start()
 
             for i in range(8):
@@ -231,8 +236,8 @@ class ThreadingTest(TestCase):
             pyodb = PyODBCache(max_depth=3, sharding=mode)
             pyodb.add_cache("test", lambda: PrimitiveBasic(), PrimitiveBasic)
             pyodb.add_cache("test2", lambda: ComplexBasic(), ComplexBasic)
-            self.assertEqual(len(pyodb["test"]), 200)
-            self.assertEqual(len(pyodb["test2"]), 100)
+            self.assertEqual(len(pyodb["test"]), 100)
+            self.assertEqual(len(pyodb["test2"]), 200)
             del pyodb
 
 
@@ -250,9 +255,19 @@ class PyODBCacheTest(TestCase):
 
     def test_add_load_cache(self):
         data: list[PrimitiveBasic] = self.cache.get_data("test")
-
         self.assertEqual(len(data), 10)
         self.assertEqual(data[0].classmember, "cm")
+
+        data: list[PrimitiveBasic] = self.cache.get_data("test")
+        self.assertEqual(len(data), 10)
+        self.assertEqual(data[0].classmember, "cm")
+
+        before = self.cache.caches["test"].expires
+        self.cache.caches["test"].expires = 0
+        data: list[PrimitiveBasic] = self.cache.get_data("test")
+        self.assertEqual(len(data), 10)
+        self.assertEqual(data[0].classmember, "cm")
+        self.assertEqual(before, self.cache.caches["test"].expires)
 
 
     def test_get_caches(self):
@@ -315,6 +330,16 @@ class PyODBCacheTest(TestCase):
         self.assertEqual(len(self.cache["test"]), 200)
         self.assertEqual(len(self.cache["test"]), 200)
         del cache2
+
+
+    def test_cache_overwrite(self):
+        self.cache.add_cache(
+            "test",
+            lambda: [ComplexBasic() for _ in range(10)],
+            ComplexBasic,
+            force=True
+        )
+        self.assertEqual(self.cache.caches["test"].data_type, ComplexBasic)
 
 
 class ErrorTest(TestCase):

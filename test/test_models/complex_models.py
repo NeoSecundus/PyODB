@@ -1,6 +1,7 @@
 from random import randint
+from test.test_models.primitive_models import (PrimitiveBasic, PrimitiveContainer,
+                                               PrimitiveIllegal1, get_random_text)
 from typing import Any
-from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer, PrimitiveIllegal1, get_random_text
 
 
 class ComplexBasic:
@@ -57,7 +58,7 @@ class ComplexMulti:
 
 
 class ComplexContainer:
-    complex_list: list[PrimitiveBasic]
+    complex_list: list[PrimitiveBasic] | None
     complex_dict: dict[str, PrimitiveBasic | None]
     multicomplex_dict: dict[str, PrimitiveBasic | PrimitiveContainer]
 
@@ -72,14 +73,17 @@ class ComplexContainer:
             self.multicomplex_dict[self.complex_list[-1].text[::-1]] = (
                 PrimitiveBasic() if randint(0, 1) == 1 else PrimitiveContainer()
             )
+        if randint(0, 2) == 1:
+            self.complex_list = None
+
 
 
     @staticmethod
     def get_members() -> dict:
         return {
-            "complex_list":  list[PrimitiveBasic],
-            "complex_dict": dict[str, PrimitiveBasic | None],
-            "multicomplex_dict": dict[str, PrimitiveBasic | PrimitiveContainer]
+            "complex_list":  list | None,
+            "complex_dict": dict,
+            "multicomplex_dict": dict
         }
 
 

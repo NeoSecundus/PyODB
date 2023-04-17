@@ -5,11 +5,11 @@ from time import time
 from types import GenericAlias, NoneType, UnionType
 from typing import Any
 
-from src.pyodb._util import generate_uid
-from src.pyodb.error import BadTypeError, DBConnError, ExpiryError, ParentError, QueryError
-from src.pyodb.schema.base._operators import Assembler
-from src.pyodb.schema.base._table import Table
-from src.pyodb.schema.base._type_defs import BASE_TYPES, CONTAINERS, PRIMITIVES
+from pyodb._util import generate_uid
+from pyodb.error import BadTypeError, ExpiryError, ParentError, QueryError
+from pyodb.schema.base._operators import Assembler
+from pyodb.schema.base._table import Table
+from pyodb.schema.base._type_defs import BASE_TYPES, CONTAINERS, PRIMITIVES
 
 
 class Insert:
@@ -439,9 +439,6 @@ class Delete(_Query):
             Returns:
                 int: The number of records deleted.
         """
-        if not self._table.dbconn:
-            raise DBConnError(f"Table {self._table.name} has no valid connection to database!")
-
         res: list[sql.Row] = self._compile("SELECT * FROM", self._table.dbconn, False).fetchall()
         rlen = len(res)
         self._compile("DELETE FROM", self._table.dbconn)
@@ -449,7 +446,7 @@ class Delete(_Query):
 
         for key, type_ in self._table.members.items():
             if isinstance(type_, GenericAlias | UnionType):
-                type_ = Assembler.get_base_type(type_) # noqa: PLW2901
+                type_ = Assembler.get_base_type(type_)
 
             if type_ in BASE_TYPES:
                 continue
@@ -564,8 +561,6 @@ class Select(_Query):
         Raises:
             DBConnError: If the table does not have a valid database connection.
         """
-        if not self._table.dbconn:
-            raise DBConnError("Table does not have a valid database connection")
         self._table.dbconn.execute(f"DELETE FROM \"{self._table.fqcn}\" WHERE _expires_ < {time()}")
         self._table.dbconn.commit()
 

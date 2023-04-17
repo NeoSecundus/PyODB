@@ -3,10 +3,11 @@ statements.
 Including create and remove table statements in case the fields contained by a class were changed.
 """
 import sqlite3 as sql
-from types import GenericAlias, NoneType, UnionType
+from pathlib import Path
+from threading import get_ident as get_thread_id
+from types import UnionType
 
-from src.pyodb.error import DBConnError
-from src.pyodb.schema.base._type_defs import BASE_TYPE_SQL_MAP, BASE_TYPES
+from pyodb.schema.base._type_defs import BASE_TYPE_SQL_MAP, BASE_TYPES
 
 
 class Table:
@@ -14,33 +15,32 @@ class Table:
 
     Args:
         base_type (type): The type of objects that the table will store.
-        is_parent (bool, optional): A flag indicating whether the table is a parent table.
-            Defaults to False.
+        sharded (bool): A flag indicating whether the table has it's own db file or not.
     """
-    _members: dict[str, type | UnionType | GenericAlias]
     base_type: type
     is_parent: bool
+    _sharded: bool
 
 
-    def __init__(self, base_type: type, is_parent: bool = False) -> None:
+    def __init__(
+            self,
+            base_type: type,
+            base_path: Path,
+            members: dict[str, type | UnionType],
+            sharded: bool
+        ) -> None:
         self._members = {}
         self.base_type = base_type
-        self.is_parent = is_parent
-        self.dbconn: sql.Connection | None = None
-
-
-    def add_member(self, name: str, type_: type | UnionType | GenericAlias):
-        """Adds a new member to the internal members
-
-        Args:
-            name (str): Name of the member (field name)
-            type_ (type): Member's datatype
-        """
-        self._members[name] = type_
+        self.is_parent = False
+        self._sharded = sharded
+        self.base_path = base_path
+        self._members = members
+        self._dbconn = self._create_dbconn()
+        self._cur_thread = get_thread_id()
 
 
     @property
-    def members(self) -> dict[str, type | UnionType | GenericAlias]:
+    def members(self) -> dict[str, type | UnionType]:
         """A dictionary containing the members (fields) of the table with their
         corresponding data types."""
 
@@ -59,6 +59,17 @@ class Table:
         return f"{self.base_type.__module__}.{self.base_type.__name__}"
 
 
+    @property
+    def dbconn(self) -> sql.Connection:
+        """SQLite3 Database Connection"""
+        tid = get_thread_id()
+        if self._cur_thread != tid:
+            self._dbconn = self._create_dbconn()
+            self._cur_thread = tid
+
+        return self._dbconn
+
+
     def create_table(self):
         """
         Creates a new table in the database.
@@ -66,8 +77,6 @@ class Table:
         Raises:
             DBConnError: If the table does not have a valid connection to any database.
         """
-        if not self.dbconn:
-            raise DBConnError(f"Table '{self.name}' has no valid connection to any Database!")
         self.dbconn.execute(self._create_table_sql())
         self.dbconn.commit()
 
@@ -79,8 +88,6 @@ class Table:
         Raises:
             DBConnError: If the table does not have a valid connection to any database.
         """
-        if not self.dbconn:
-            raise DBConnError(f"Table '{self.name}' has no valid connection to any Database!")
         self.dbconn.execute(self._drop_table_sql())
         self.dbconn.commit()
 
@@ -95,8 +102,6 @@ class Table:
         Raises:
             DBConnError: If the table does not have a valid connection to a database.
         """
-        if not self.dbconn:
-            raise DBConnError(f"Table '{self.name}' has no valid connection to any Database!")
         self.dbconn.execute(f"DELETE FROM \"{self.fqcn}\" WHERE _parent_table_ = '{parent.name}'")
         self.dbconn.commit()
 
@@ -106,9 +111,6 @@ class Table:
         sql = f"CREATE TABLE IF NOT EXISTS \"{self.fqcn}\" (_uid_ TEXT PRIMARY KEY,_parent_ TEXT,\
 _parent_table_ TEXT,_expires_ REAL,"
         for name, type_ in self.members.items():
-            if isinstance(type_, (GenericAlias, UnionType)):
-                type_ = self._get_base_type(type_) # noqa: PLW2901
-
             if type_ in BASE_TYPES:
                 sql += f"{name} {BASE_TYPE_SQL_MAP[type_]},"
             else:
@@ -117,37 +119,41 @@ _parent_table_ TEXT,_expires_ REAL,"
         return sql[:-1] + ");"
 
 
-    @classmethod
-    def _get_base_type(cls, type_: GenericAlias | UnionType) -> type | UnionType:
-        """
-        Returns the base type for the specified type. (Includes None)
-
-        Args:
-            type_ (GenericAlias | UnionType): The type for which to get the base type.
-
-        Returns:
-            type | UnionType: The base type for the specified type.
-        """
-        if isinstance(type_, UnionType):
-            if type_ in BASE_TYPES:
-                return type_
-
-            ret = type_
-            for t in type_.__args__:
-                if isinstance(t, GenericAlias):
-                    ret = cls._get_base_type(t)
-                    continue
-
-                if isinstance(ret, type) and t is NoneType:
-                    ret = ret | None
-            return ret
-        else:
-            return type_.__origin__
-
-
     def _drop_table_sql(self) -> str:
         """Returns the drop table sql for this table."""
         return f"DROP TABLE IF EXISTS \"{self.fqcn}\";"
+
+
+    def _create_dbconn(self) -> sql.Connection:
+        """Static method for creating a new database connection with standard performance boosting
+            pragmas.
+
+        Args:
+            path (Path): The path to the database file.
+
+        Returns:
+            Connection: A new connection object.
+        """
+        conn = sql.connect(
+            self.base_path / (self.base_type.__name__ + ".db")
+                if self._sharded
+                else self.base_path / "pyodb.db",
+            check_same_thread=True,
+            isolation_level="IMMEDIATE"
+        )
+        try:
+            conn.execute("pragma journal_mode = WAL;")
+            conn.execute("pragma synchronous = normal;")
+            conn.execute("pragma page_size = 2048;")
+            conn.commit()
+        except sql.OperationalError:
+            # These pragmas are only for performance
+            # They may fail because the database is locked or because they are not supported
+            # it is not critical in any case
+            print("PyODB WARNING: Could not set database performance pragmas.")
+
+        conn.row_factory = sql.Row
+        return conn
 
 
     def __repr__(self) -> str:

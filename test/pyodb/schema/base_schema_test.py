@@ -4,23 +4,21 @@ from test.test_models.complex_models import ComplexBasic, ComplexContainer, Comp
 from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from unittest import TestCase
 
-from src.pyodb.error import DBConnError, DisassemblyError, ParentError, UnknownTypeError
-from src.pyodb.schema._base_schema import BaseSchema
-from src.pyodb.schema.base._operators import Disassembler
-from src.pyodb.schema.base._sql_builders import Delete, Select
-from src.pyodb.schema.unified_schema import UnifiedSchema
+from pyodb.error import DisassemblyError, ParentError, UnknownTypeError
+from pyodb.schema._base_schema import BaseSchema
+from pyodb.schema.base._operators import Disassembler
+from pyodb.schema.base._sql_builders import Delete, Select
+from pyodb.schema.unified_schema import UnifiedSchema
 
 
 class BaseSchemaTest(TestCase):
     def setUp(self) -> None:
-        self.schema = BaseSchema(Path(".pyodb"), 2, False)
+        self.schema = UnifiedSchema(Path(".pyodb"), 2, False)
         return super().setUp()
 
 
     def test_schema_size(self):
-        tables = Disassembler.disassemble_type(ComplexBasic)
-        self.schema._tables = {t.base_type: t for t in tables}
-
+        self.schema.add_type(ComplexBasic)
         self.assertEqual(self.schema.schema_size, 3)
 
 
@@ -30,8 +28,7 @@ class BaseSchemaTest(TestCase):
 
 
     def test_is_known_type(self):
-        tables = Disassembler.disassemble_type(ComplexBasic)
-        self.schema._tables = {t.base_type: t for t in tables}
+        self.schema.add_type(ComplexBasic)
 
         self.assertTrue(self.schema.is_known_type(ComplexBasic))
         self.assertTrue(self.schema.is_known_type(PrimitiveBasic))
@@ -39,45 +36,33 @@ class BaseSchemaTest(TestCase):
 
 
     def test_not_implemented(self):
-        self.assertRaises(NotImplementedError, self.schema.add_type, PrimitiveBasic)
-        self.assertRaises(NotImplementedError, self.schema._save_schema)
+        schema = BaseSchema(Path(".pyodb"), 2, False)
+        self.assertRaises(NotImplementedError, schema.add_type, PrimitiveBasic)
+        self.assertRaises(NotImplementedError, schema._save_schema)
 
 
     def test_has_parent(self):
-        tables = Disassembler.disassemble_type(ComplexBasic)
-        tables[0].is_parent = True
-        self.schema._tables = {t.base_type: t for t in tables}
+        self.schema.add_type(ComplexBasic)
         self.assertIsNotNone(self.schema.get_parent(PrimitiveBasic))
         self.assertIsNone(self.schema.get_parent(ComplexBasic))
 
-        tables = Disassembler.disassemble_type(ComplexContainer)
-        tables[0].is_parent = True
-        self.schema._tables = {t.base_type: t for t in tables}
+        self.schema.add_type(ComplexContainer)
         self.assertIsNone(self.schema.get_parent(ComplexContainer))
 
-        tables = Disassembler.disassemble_type(ComplexMulti)
-        tables[0].is_parent = True
-        self.schema._tables = {t.base_type: t for t in tables}
+        self.schema.add_type(ComplexMulti)
         self.assertIsNotNone(self.schema.get_parent(PrimitiveBasic))
         self.assertIsNone(self.schema.get_parent(ComplexMulti))
 
+        self.schema.remove_type(ComplexBasic)
         self.assertRaises(UnknownTypeError, self.schema.get_parent, ComplexBasic)
 
 
     def test_remove_type(self):
-        Path(".pyodb/test.db").unlink(True)
-        tables = Disassembler.disassemble_type(ComplexBasic)
-        tables[0].is_parent = True
-        tables = [Disassembler.disassemble_type(ComplexContainer)[0]] + tables
-        tables[0].is_parent = True
-        tables = [Disassembler.disassemble_type(ComplexMulti)[0]] + tables
-        tables[0].is_parent = True
-        dbconn = sql.connect(".pyodb/test.db")
+        Path(".pyodb/pyodb.db").unlink(True)
 
-        for table in tables:
-            self.schema._tables[table.base_type] = table
-            table.dbconn = dbconn
-            table.create_table()
+        self.schema.add_type(ComplexBasic)
+        self.schema.add_type(ComplexMulti)
+        self.schema.add_type(ComplexContainer)
 
         self.schema.remove_type(ComplexBasic)
         self.assertIn(PrimitiveBasic, self.schema._tables.keys())
@@ -87,9 +72,9 @@ class BaseSchemaTest(TestCase):
         self.assertNotIn(ComplexBasic, self.schema._tables.keys())
 
         self.schema.remove_type(ComplexMulti)
-        self.assertIn(PrimitiveBasic, self.schema._tables.keys())
         self.assertIn(ComplexContainer, self.schema._tables.keys())
-        self.assertIn(PrimitiveContainer, self.schema._tables.keys())
+        self.assertNotIn(PrimitiveBasic, self.schema._tables.keys())
+        self.assertNotIn(PrimitiveContainer, self.schema._tables.keys())
         self.assertNotIn(ComplexMulti, self.schema._tables.keys())
         self.assertNotIn(ComplexBasic, self.schema._tables.keys())
 
@@ -98,32 +83,17 @@ class BaseSchemaTest(TestCase):
 
 
     def test_remove_type_errors(self):
-        Path(".pyodb/test.db").unlink(True)
-        tables = Disassembler.disassemble_type(ComplexBasic)
-        tables[0].is_parent = True
-        dbconn = sql.connect(".pyodb/test.db")
-
-        for table in tables:
-            self.schema._tables[table.base_type] = table
-            table.dbconn = dbconn
-            table.create_table()
-
+        Path(".pyodb/pyodb.db").unlink(True)
+        self.schema.add_type(ComplexBasic)
         self.assertRaises(ParentError, self.schema.remove_type, PrimitiveBasic)
         self.assertRaises(UnknownTypeError, self.schema.remove_type, ComplexMulti)
 
 
     def test_insert(self):
-        Path(".pyodb/test.db").unlink(True)
-        tables = Disassembler.disassemble_type(ComplexBasic)
-        tables[0].is_parent = True
-        tables += [Disassembler.disassemble_type(ComplexMulti)[0]]
-        tables[-1].is_parent = True
-        dbconn = sql.connect(".pyodb/test.db")
+        dbconn = sql.connect(".pyodb/pyodb.db")
 
-        for table in tables:
-            self.schema._tables[table.base_type] = table
-            table.dbconn = dbconn
-            table.create_table()
+        self.schema.add_type(ComplexBasic)
+        self.schema.add_type(ComplexMulti)
 
         self.schema.insert(ComplexMulti(), None)
         self.schema.insert(ComplexBasic(), None)
@@ -148,15 +118,8 @@ class BaseSchemaTest(TestCase):
 
 
     def test_insert_many(self):
-        Path(".pyodb/test.db").unlink(True)
-        tables = Disassembler.disassemble_type(ComplexBasic)
-        tables[0].is_parent = True
-        dbconn = sql.connect(".pyodb/test.db")
-
-        for table in tables:
-            self.schema._tables[table.base_type] = table
-            table.dbconn = dbconn
-            table.create_table()
+        dbconn = sql.connect(".pyodb/pyodb.db")
+        self.schema.add_type(ComplexBasic)
 
         cb = [ComplexBasic()]*10
         self.schema.insert_many(cb, None)
@@ -179,22 +142,11 @@ class BaseSchemaTest(TestCase):
 
     def test_insert_errors(self):
         Path(".pyodb/test.db").unlink(True)
-        tables = Disassembler.disassemble_type(ComplexBasic)
-        tables[0].is_parent = True
-        dbconn = sql.connect(".pyodb/test.db")
 
-        for table in tables:
-            self.schema._tables[table.base_type] = table
-            table.dbconn = dbconn
-            table.create_table()
-
-        self.schema._tables[ComplexBasic].dbconn = None
-        self.assertRaises(DBConnError, self.schema.insert, ComplexBasic(), None)
-        self.assertRaises(DBConnError, self.schema.insert_many, [ComplexBasic()], None)
-
-        self.schema._tables[ComplexBasic].dbconn = dbconn
         self.assertRaises(UnknownTypeError, self.schema.insert, ComplexContainer(), None)
         self.assertRaises(UnknownTypeError, self.schema.insert_many, [ComplexContainer()], None)
+
+        self.schema.add_type(ComplexBasic)
         self.assertRaises(DisassemblyError, self.schema.insert_many, [ComplexBasic(), PrimitiveBasic()], None)
 
 
@@ -220,7 +172,6 @@ class BaseSchemaTest(TestCase):
         Path(".pyodb/pyodb.db").unlink(True)
         self.schema = UnifiedSchema(Path(".pyodb"), 2, False)
         self.schema.add_type(ComplexBasic)
-        self.schema._tables[PrimitiveBasic].dbconn = None
 
         self.schema.clear()
         self.assertTrue(True)

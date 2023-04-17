@@ -1,9 +1,9 @@
 from pathlib import Path
+from test.test_models.complex_models import ComplexBasic
+from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from unittest import TestCase
 
-from src.pyodb.schema.unified_schema import UnifiedSchema
-from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
-from test.test_models.complex_models import ComplexBasic
+from pyodb.schema.unified_schema import UnifiedSchema
 
 
 class UnifiedSchemaTest(TestCase):
@@ -16,7 +16,4 @@ class UnifiedSchemaTest(TestCase):
         self.assertIn(ComplexBasic, schema._tables)
         self.assertIn(PrimitiveBasic, schema._tables)
         self.assertIn(PrimitiveContainer, schema._tables)
-
-        for _, table in schema._tables.items():
-            self.assertEqual(schema._tables[ComplexBasic].dbconn, table.dbconn)
         del schema

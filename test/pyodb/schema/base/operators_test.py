@@ -2,13 +2,13 @@ from pathlib import Path
 from test.test_models.complex_models import (ComplexBasic, ComplexContainer, ComplexIllegal1,
                                              ComplexIllegal2, ComplexIllegal3, ComplexMulti)
 from test.test_models.primitive_models import (PrimitiveBasic, PrimitiveContainer,
-                                               PrimitiveIllegal1, ReassemblyTester)
+                                               PrimitiveIllegal1, PrimitiveIllegal2, ReassemblyTester)
 from types import NoneType
 from unittest import TestCase
 
-from src.pyodb.error import DBConnError, DisassemblyError, MixedTypesError
-from src.pyodb.schema.base._operators import Assembler, Disassembler
-from src.pyodb.schema.unified_schema import UnifiedSchema
+from pyodb.error import DisassemblyError, MixedTypesError
+from pyodb.schema.base._operators import Assembler, Disassembler
+from pyodb.schema.unified_schema import UnifiedSchema
 
 
 class DissassemblerTest(TestCase):
@@ -17,51 +17,51 @@ class DissassemblerTest(TestCase):
 
 
     def test_primitive_disassembly(self):
-        tables = Disassembler.disassemble_type(PrimitiveBasic)
+        ttypes = Disassembler.disassemble_type(PrimitiveBasic)
         self.assertEqual(
-            tables[0].members,
+            ttypes[PrimitiveBasic],
             PrimitiveBasic.get_members()
         )
 
-        tables = Disassembler.disassemble_type(PrimitiveContainer)
+        ttypes = Disassembler.disassemble_type(PrimitiveContainer)
         self.assertEqual(
-            tables[0].members,
+            ttypes[PrimitiveContainer],
             PrimitiveContainer.get_members()
         )
 
 
     def test_complex_disassembly(self):
-        tables = Disassembler.disassemble_type(ComplexBasic)
+        ttypes = Disassembler.disassemble_type(ComplexBasic)
         self.assertEqual(
-            tables[0].members,
+            ttypes[ComplexBasic],
             ComplexBasic.get_members()
         )
         self.assertEqual(
-            tables[1].members,
+            ttypes[PrimitiveBasic],
             PrimitiveBasic.get_members()
         )
         self.assertEqual(
-            tables[2].members,
+            ttypes[PrimitiveContainer],
             PrimitiveContainer.get_members()
         )
 
-        tables = Disassembler.disassemble_type(ComplexMulti)
+        ttypes = Disassembler.disassemble_type(ComplexMulti)
         self.assertEqual(
-            tables[0].members,
+            ttypes[ComplexMulti],
             ComplexMulti.get_members()
         )
         self.assertEqual(
-            tables[1].members,
+            ttypes[PrimitiveBasic],
             PrimitiveBasic.get_members()
         )
         self.assertEqual(
-            tables[2].members,
+            ttypes[PrimitiveContainer],
             PrimitiveContainer.get_members()
         )
 
-        tables = Disassembler.disassemble_type(ComplexContainer)
+        ttypes = Disassembler.disassemble_type(ComplexContainer)
         self.assertEqual(
-            tables[0].members,
+            ttypes[ComplexContainer],
             ComplexContainer.get_members()
         )
 
@@ -76,6 +76,7 @@ class DissassemblerTest(TestCase):
             str | None,
             NoneType,
             PrimitiveIllegal1,
+            PrimitiveIllegal2,
             ComplexIllegal1,
             ComplexIllegal2,
             ComplexIllegal3,
@@ -91,43 +92,6 @@ class DissassemblerTest(TestCase):
 
 
 class AssemblerTest(TestCase):
-    def test_assembly_connection_error(self):
-        schema = UnifiedSchema(Path(".pyodb"), 1, False)
-        schema.add_type(ComplexBasic)
-        pbs = [ComplexBasic() for _ in range(10)]
-        schema.insert_many(pbs, None)
-        schema.max_depth = 2
-
-        table = schema._tables[ComplexBasic]
-        if not table.dbconn:
-            self.fail()
-
-        row = table.dbconn.execute(f"SELECT * FROM \"{table.fqcn}\" LIMIT 1;").fetchone()
-        schema._tables[PrimitiveBasic].dbconn = None
-        self.assertRaises(
-            DBConnError,
-            Assembler.assemble_types,
-            base_type=ComplexBasic,
-            tables=schema._tables,
-            rows=[row]
-        )
-        self.assertRaises(
-            DBConnError,
-            Assembler.assemble_type,
-            base_type=ComplexBasic,
-            tables=schema._tables,
-            row=row
-        )
-
-        self.assertRaises(
-            DBConnError,
-            schema.insert_many,
-            objs=[ComplexBasic()],
-            expires=None
-        )
-        del schema
-
-
     def test_reassembly_function(self):
         schema = UnifiedSchema(Path(".pyodb"), 1, False)
         schema.add_type(ReassemblyTester)
@@ -135,8 +99,6 @@ class AssemblerTest(TestCase):
         schema.insert_many(rts, None)
 
         table = schema._tables[ReassemblyTester]
-        if not table.dbconn:
-            self.fail()
 
         row = table.dbconn.execute(f"SELECT * FROM \"{table.fqcn}\" LIMIT 1;").fetchone()
         res = Assembler.assemble_types(ReassemblyTester, schema._tables, [row])

@@ -1,17 +1,23 @@
-from src.pyodb.schema._base_schema import BaseSchema
-from src.pyodb.schema.base._operators import Disassembler
-from src.pyodb.schema.base._table import Table
+from pathlib import Path
+
+from pyodb.schema._base_schema import BaseSchema
+from pyodb.schema.base._operators import Disassembler
+from pyodb.schema.base._table import Table
 
 
 class ShardSchema(BaseSchema):
+    def __init__(self, base_path: Path, max_depth: int, persistent: bool) -> None:
+        Disassembler.sharded = True
+        super().__init__(base_path, max_depth, persistent)
+
+
     def add_type(self, base_type: type):
-        tables = Disassembler.disassemble_type(base_type)
-        for table in tables:
-            if self.is_known_type(table.base_type):
+        ttypes = Disassembler.disassemble_type(base_type)
+        for ttype, members in ttypes.items():
+            if self.is_known_type(ttype):
                 continue
-            table.dbconn = self._create_dbconn(self._base_path / f"{table.name}.db")
-            self._tables[table.base_type] = table
-            table.create_table()
+            self._tables[ttype] = Table(ttype, self._base_path, members, True)
+            self._tables[ttype].create_table()
         self._tables[base_type].is_parent = True
 
 
@@ -20,9 +26,6 @@ class ShardSchema(BaseSchema):
         old_tables: list[Table] = self.select(Table).all()
         for old_table in old_tables:
             self.add_type(old_table.base_type)
-            self._tables[old_table.base_type].dbconn = self._create_dbconn(
-                self._base_path / f"{old_table.name}.db"
-            )
             self._tables[old_table.base_type].is_parent = old_table.is_parent
 
 
@@ -35,11 +38,11 @@ class ShardSchema(BaseSchema):
 
     def __del__(self):
         if self.is_persistent:
-            self._save_schema()
+            if self.save_table_defs:
+                self._save_schema()
             return
 
         for table in self._tables.values():
-            del table.dbconn
             (self._base_path / (table.name + ".db")).unlink(True)
             (self._base_path / (table.name + ".db-shm")).unlink(True)
             (self._base_path / (table.name + ".db-wal")).unlink(True)

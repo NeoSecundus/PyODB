@@ -5,9 +5,9 @@ from time import time
 from types import GenericAlias, NoneType, UnionType
 from typing import Any
 
-from src.pyodb.error import DBConnError, DisassemblyError, MixedTypesError
-from src.pyodb.schema.base._table import Table
-from src.pyodb.schema.base._type_defs import BASE_TYPES, CONTAINERS, PRIMITIVES
+from pyodb.error import DisassemblyError, MixedTypesError
+from pyodb.schema.base._table import Table
+from pyodb.schema.base._type_defs import BASE_TYPES, CONTAINERS, PRIMITIVES
 
 
 class Assembler:
@@ -33,10 +33,6 @@ class Assembler:
         Raises:
             DBConnError: If the table does not have a valid database connection.
         """
-        if not table.dbconn:
-            raise DBConnError(
-                f"Table '{table.name}' has no valid database connection!"
-            )
         if cls.last_clean < time()-1:
             table.dbconn.execute(f"DELETE FROM \"{table.fqcn}\" WHERE _expires_ < {time()}")
             table.dbconn.commit()
@@ -50,26 +46,20 @@ class Assembler:
 
 
     @classmethod
-    def get_base_type(cls, type_: UnionType | GenericAlias) -> type:
+    def get_base_type(cls, type_: UnionType) -> type:
         """
-        Given a UnionType or a GenericAlias, this method returns the most basic type.
+        Given a UnionType, this method returns the most basic type.
 
         Args:
-            type_ (UnionType | GenericAlias): A UnionType or a GenericAlias.
+            type_ (UnionType): A UnionType.
 
         Returns:
             type: The base type of the given type.
         """
-        if isinstance(type_, UnionType):
-            args = type_.__args__
-            subtype = args[0] if not isinstance(args[0], NoneType) else args[1]
+        args = type_.__args__
+        subtype = args[0] if not isinstance(args[0], NoneType) else args[1]
 
-            if isinstance(subtype, GenericAlias):
-                return subtype.__origin__
-
-            return subtype
-        else:
-            return type_.__origin__
+        return subtype
 
 
     @classmethod
@@ -101,7 +91,7 @@ class Assembler:
                     continue
 
                 if isinstance(type_, (GenericAlias, UnionType)):
-                    type_ = cls.get_base_type(type_) # noqa: PLW2901
+                    type_ = cls.get_base_type(type_)
 
                 if type_ in PRIMITIVES:
                     setattr(obj, name, type_(row[name]))
@@ -149,7 +139,7 @@ class Assembler:
                 continue
 
             if isinstance(type_, (GenericAlias, UnionType)):
-                type_ = cls.get_base_type(type_) # noqa: PLW2901
+                type_ = cls.get_base_type(type_)
 
             if type_ in PRIMITIVES:
                 setattr(obj, name, type_(row[name]))
@@ -164,8 +154,6 @@ class Assembler:
 
                 ttype: type = locate(row[name]) # type: ignore
                 subtable = tables[ttype]
-                if not subtable.dbconn:
-                    raise DBConnError("Table does not have a valid database connection!")
                 subrow: sql.Row = subtable.dbconn.execute(
                     f"SELECT * FROM \"{subtable.fqcn}\" WHERE _parent_ = '{row['_uid_']}'"
                 ).fetchone()
@@ -176,8 +164,10 @@ class Assembler:
 
 
 class Disassembler:
+    sharded = False
+
     @classmethod
-    def _disassemble_union_type(cls, type_: UnionType) -> list[Table]:
+    def _disassemble_union_type(cls, type_: UnionType) -> dict[type, dict]:
         """
         Given a UnionType object, returns a list of Table objects associated with the input type.
 
@@ -191,22 +181,41 @@ class Disassembler:
             MixedTypesError: If the input type is a UnionType with mixed primitive and custom type
             annotations or multiple primitives.
         """
-        tables = []
+        tables = {}
         if any([t in BASE_TYPES for t in type_.__args__]):
             raise MixedTypesError(
                 f"Cannot save object with mixed primitive and custom type annotations \
 or multiple primitives! Got: {type_}"
             )
         for t in type_.__args__:
-            if t is NoneType or isinstance(t, GenericAlias):
+            if t is NoneType:
                 continue
             else:
-                tables += cls.disassemble_type(t)
+                tables |= cls.disassemble_type(t)
         return tables
 
 
     @classmethod
-    def disassemble_type(cls, obj_type: type) -> list[Table]:
+    def _break_down_type(cls, type_: type | UnionType | GenericAlias) -> type | UnionType:
+        if isinstance(type_, UnionType):
+            subtypes = type_.__args__
+            for i, arg in enumerate(subtypes):
+                if isinstance(arg, GenericAlias):
+                    if len(subtypes) != 2 or subtypes[1-i] is not NoneType:
+                        raise MixedTypesError(
+                            "Cannot save object with multiple primitive or mixed types"
+                        )
+                    type_ = arg.__origin__ | None
+                    break
+
+        if isinstance(type_, GenericAlias):
+            type_ = type_.__origin__
+
+        return type_
+
+
+    @classmethod
+    def disassemble_type(cls, obj_type: type) -> dict[type, dict[str, type | UnionType]]:
         """Disassembles a custom object type into a list of tables that represent the object's
         structure in the database.
 
@@ -223,12 +232,12 @@ or multiple primitives! Got: {type_}"
                 is not a type at all.
         """
         if obj_type is Any or obj_type is NoneType or obj_type in BASE_TYPES:
-            raise DisassemblyError("'Any', 'None' and 'Primitive' types are not supported!")
+            raise DisassemblyError("'Any', 'None' and Primitive types are not supported!")
 
         if not isinstance(obj_type, type):
             raise DisassemblyError("Passed argument must be a type!")
 
-        tables = [Table(obj_type)]
+        tables = {obj_type: {}}
 
         if "__odb_members__" in obj_type.__annotations__:
             members = getattr(obj_type, "__odb_members__")
@@ -241,15 +250,16 @@ or multiple primitives! Got: {type_}"
             }
 
         for key, type_ in members.items():
-            tables[0].add_member(key, type_)
-            if isinstance(type_, GenericAlias) or type_ is type:
-                continue
+            type_ = cls._break_down_type(type_)
 
+            tables[obj_type][key] = type_
+            if type_ is type:
+                continue
 
             if type_ not in BASE_TYPES:
                 if isinstance(type_, UnionType):
-                    tables += cls._disassemble_union_type(type_)
+                    tables |= cls._disassemble_union_type(type_)
                 else:
-                    tables += cls.disassemble_type(type_)
+                    tables |= cls.disassemble_type(type_)
 
         return tables

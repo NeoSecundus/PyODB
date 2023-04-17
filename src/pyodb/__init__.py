@@ -1,2 +1,1 @@
-# __init__.py
-from .pyodb import *  # noqa: F403
+from .pyodb import PyODB, PyODBCache  # noqa: F401

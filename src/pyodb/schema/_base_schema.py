@@ -1,13 +1,11 @@
 import pickle
-from logging import Logger
 from pathlib import Path
-from sqlite3 import Connection, OperationalError, Row, connect
-from types import GenericAlias, UnionType
+from types import UnionType
 
-from src.pyodb.error import DBConnError, DisassemblyError, ParentError, UnknownTypeError
-from src.pyodb.schema.base._sql_builders import Delete, Insert, MultiInsert, Select
-from src.pyodb.schema.base._table import Table
-from src.pyodb.schema.base._type_defs import BASE_TYPES
+from pyodb.error import DisassemblyError, ParentError, UnknownTypeError
+from pyodb.schema.base._sql_builders import Delete, Insert, MultiInsert, Select
+from pyodb.schema.base._table import Table
+from pyodb.schema.base._type_defs import BASE_TYPES
 
 
 class BaseSchema:
@@ -27,36 +25,7 @@ class BaseSchema:
     _base_path: Path
     _max_depth: int
     is_persistent: bool
-    logger: Logger | None
-
-
-    def _create_dbconn(self, path: Path) -> Connection:
-        """Static method for creating a new database connection with standard performance boosting
-            pragmas.
-
-        Args:
-            path (Path): The path to the database file.
-
-        Returns:
-            Connection: A new connection object.
-        """
-        conn = connect(path.as_posix(), check_same_thread=True, isolation_level="IMMEDIATE")
-        try:
-            conn.execute("pragma journal_mode = WAL;")
-            conn.execute("pragma synchronous = normal;")
-            conn.execute("pragma page_size = 2048;")
-            conn.commit()
-        except OperationalError:
-            # These pragmas are only for performance
-            # They may fail because the database is locked or because they are not supported
-            # it is not critical in any case
-            if self.logger:
-                self.logger.warning(
-                    "Failed to set performance pragmas. You may want to update your sqlite version."
-                )
-
-        conn.row_factory = Row
-        return conn
+    save_table_defs: bool
 
 
     def __init__(self, base_path: Path, max_depth: int, persistent: bool) -> None:
@@ -64,6 +33,7 @@ class BaseSchema:
         self._max_depth = max_depth
         self._base_path = base_path
         self.is_persistent = persistent
+        self.save_table_defs = True
 
 
     def is_known_type(self, obj_type: type) -> bool:
@@ -134,12 +104,6 @@ class BaseSchema:
                 for sub_type in types:
                     if self.is_known_type(sub_type):
                         self._remove_type(table, sub_type)
-            elif isinstance(type_, GenericAlias):
-                for sbt in type_.__args__:
-                    sbt = sbt.__args__ if isinstance(sbt, UnionType) else [sbt] # noqa: PLW2901
-                    for t in sbt:
-                        if self.is_known_type(t):
-                            self._remove_type(table, t)
             elif self.is_known_type(type_):
                 self._remove_type(table, type_)
 
@@ -168,12 +132,6 @@ class BaseSchema:
                 if isinstance(type_, UnionType):
                     if any(base_type == t for t in type_.__args__):
                         return ttype
-                    continue
-                if isinstance(type_, GenericAlias):
-                    for sbt in type_.__args__:
-                        sbt = sbt.__args__ if isinstance(sbt, UnionType) else [sbt] # noqa: PLW2901
-                        if any(base_type == t for t in sbt):
-                            return ttype
                     continue
                 elif type_ == base_type:
                     return ttype
@@ -205,8 +163,6 @@ class BaseSchema:
             raise UnknownTypeError(f"Tried to insert object of unknown type {type(obj)}")
 
         table = self._tables[type(obj)]
-        if not table.dbconn:
-            raise DBConnError("Table has no valid connection to a database")
 
         if parent:
             inserter = Insert(table.fqcn, parent.uid, parent.table_name, expires)
@@ -214,7 +170,7 @@ class BaseSchema:
             inserter = Insert(table.fqcn, None, None, expires)
 
         for member in table.members.keys():
-            member = getattr(obj, member) # noqa: PLW2901
+            member = getattr(obj, member)
             if member and type(member) not in BASE_TYPES:
                 if depth >= self._max_depth:
                     inserter.add_val(pickle.dumps(member))
@@ -242,8 +198,6 @@ class BaseSchema:
             raise UnknownTypeError(f"Tried to insert object of unknown type {base_type}")
 
         table = self._tables[base_type]
-        if not table.dbconn:
-            raise DBConnError("Table has no valid connection to a database")
         multi_inserter = MultiInsert(table.fqcn)
 
         if any(type(obj) != base_type for obj in objs):
@@ -254,7 +208,7 @@ class BaseSchema:
             inserter = Insert(table.fqcn, None, None, expires)
 
             for member in table.members.keys():
-                member = getattr(obj, member) # noqa: PLW2901
+                member = getattr(obj, member)
                 membertype = type(member)
                 if member and membertype not in BASE_TYPES:
                     if self._max_depth == 0:
@@ -290,8 +244,6 @@ class BaseSchema:
         base_type = type(objs[0][0])
 
         table = self._tables[base_type]
-        if not table.dbconn:
-            raise DBConnError("Table has no valid connection to a database")
         multi_inserter = MultiInsert(table.fqcn)
 
         subtypes: dict[type, list[tuple[object, Insert]]] = {}
@@ -299,7 +251,7 @@ class BaseSchema:
             inserter = Insert(table.fqcn, obj[1].uid, obj[1].table_name, expires)
 
             for member in table.members.keys():
-                member = getattr(obj[0], member) # noqa: PLW2901
+                member = getattr(obj[0], member)
                 membertype = type(member)
                 if member and membertype not in BASE_TYPES:
                     if depth >= self._max_depth:
@@ -358,7 +310,7 @@ class BaseSchema:
     def clear(self):
         """Deletes all objects from the database but keeps the table definitions."""
         for table in self._tables.values():
-            if not table.dbconn or not table.is_parent:
+            if not table.is_parent:
                 continue
             Delete(table.base_type, self._tables).commit()
 

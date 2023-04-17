@@ -4,9 +4,9 @@ from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
 from time import time
 from unittest import TestCase
 
-from src.pyodb.error import BadTypeError, DBConnError, ExpiryError, ParentError, QueryError
-from src.pyodb.schema.base._sql_builders import Delete, Insert, MultiInsert, Select
-from src.pyodb.schema.unified_schema import UnifiedSchema
+from pyodb.error import BadTypeError, ExpiryError, ParentError, QueryError
+from pyodb.schema.base._sql_builders import Delete, Insert, MultiInsert, Select
+from pyodb.schema.unified_schema import UnifiedSchema
 
 
 class InsertTest(TestCase):
@@ -146,8 +146,6 @@ class SelectTest(TestCase):
         query = Select(PrimitiveBasic, self.schema._tables)
         self.assertRaises(QueryError, query.one)
         self.assertRaises(QueryError, query.eq(text = None).one)
-        query._table.dbconn = None
-        self.assertRaises(DBConnError, query.first)
 
 
     def test_first(self):
@@ -206,20 +204,13 @@ class DeleteTest(TestCase):
 
     def test_throw_subtype_error(self):
         table = self.schema._tables[ComplexMulti]
-        if table.dbconn:
-            table.dbconn.execute(
-                f"UPDATE \"{table.fqcn}\" SET multi = 'test.test_models.complex_models.ComplexContainer';"
-            )
-            table.dbconn.commit()
+        table.dbconn.execute(
+            f"UPDATE \"{table.fqcn}\" SET multi = 'test.test_models.complex_models.ComplexContainer';"
+        )
+        table.dbconn.commit()
 
         query = Delete(ComplexMulti, self.schema._tables)
         self.assertRaises(BadTypeError, query.commit)
-
-
-    def test_connection_error(self):
-        self.schema._tables[ComplexMulti].dbconn = None
-        query = Delete(ComplexMulti, self.schema._tables)
-        self.assertRaises(DBConnError, query.commit)
 
 
     def test_non_parent_table_error(self):
