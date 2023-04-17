@@ -2,7 +2,8 @@ from pathlib import Path
 from test.test_models.complex_models import (ComplexBasic, ComplexContainer, ComplexIllegal1,
                                              ComplexIllegal2, ComplexIllegal3, ComplexMulti)
 from test.test_models.primitive_models import (PrimitiveBasic, PrimitiveContainer,
-                                               PrimitiveIllegal1, PrimitiveIllegal2, ReassemblyTester)
+                                               PrimitiveIllegal1, PrimitiveIllegal2,
+                                               ReassemblyTester)
 from types import NoneType
 from unittest import TestCase
 

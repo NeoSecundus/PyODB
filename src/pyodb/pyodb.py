@@ -369,19 +369,16 @@ class PyODBCache:
         # Try to get data from in-memory cache
         data = cache.get_data()
         if data is not None:
-            print("Using cached data")
             return data
 
         # Try to get data from database
         db_res = self.pyodb.select(cache.dataclass).all()
         data = [dp.data for dp in db_res]
         if data:
-            print("Using db data")
             cache.set_data(data, db_res[0].expires)
             return data
 
         try:
-            print("Generating new data")
             data = cache.data_func(*args, **kwargs)
             expires = time() + cache.lifetime
             self.pyodb.save_multiple([cache.dataclass(dp, expires) for dp in data], expires)

@@ -81,7 +81,6 @@ class PyODBTest(TestCase):
         self.pyodb = PyODB(sharding=True)
         self.pyodb.add_type(ComplexBasic)
         self.pyodb.persistent = True
-        print(self.pyodb._schema._tables)
         del self.pyodb
 
         self.pyodb = PyODB(sharding=True)
