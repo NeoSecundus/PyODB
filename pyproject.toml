@@ -18,6 +18,7 @@ keywords = [
     "sqlite3",
 ]
 dependencies = []
+license = { file = "LICENSE" }
 
 [build-system]
 requires = ["hatchling"]

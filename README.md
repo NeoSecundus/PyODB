@@ -2,6 +2,13 @@
 
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/NeoSecundus/PyODB/python-package.yml)
 [![codecov](https://codecov.io/gh/NeoSecundus/PyODB/branch/main/graph/badge.svg?token=AEXOJTNDWZ)](https://codecov.io/gh/NeoSecundus/PyODB)
+![Open Issues](https://img.shields.io/github/issues-raw/NeoSecundus/PyODB)
+![Closed Issues](https://img.shields.io/github/issues-closed-raw/NeoSecundus/PyODB)
+![PyPI Version](https://img.shields.io/pypi/v/pyodb?color=%23a08)
+![Supported Python Versions](https://img.shields.io/badge/Python%20Versions-3.10+-48f)
+
+
+<img src="docs/img/Logo.svg" style="margin: auto; width: 20vh" />
 
 Python Object DataBase (PyODB) is a SQLite3 ORM library aiming to be as simple to use as possible.
 This library is supposed to be used for testing, in small projects, when wanting to export complex
@@ -11,7 +18,7 @@ python data in a well structured format or for local inter-process data caching.
 
 - PyODB uses the python built-in SQLite3 implementation as database and has no external dependencies.
 - PyODB can take any (non-primitive) type you pass into it, extracts its members and creates a
-  database schema representing the type. Sub-types of the main type are also extracted recusively.
+  database schema representing the type. Sub-types of the main type are also extracted recursively.
 - Saves instances of known types into the database and loads them using basic filtering options.
 - Also provides a caching module 'PyODBCache' which may be used for inter-process data caching.
   > When using multiprocessing excessively race conditions may occur.
@@ -87,7 +94,7 @@ Create a new instance - types are re-loaded from the database since persistent w
 pyodb = PyODB()
 ```
 
-Now you can get a Selector instance wich is used to select and filter data loaded from the database.
+Now you can get a Selector instance which is used to select and filter data loaded from the database.
 
 ```python
 select = pyodb.select(MyType)
@@ -140,7 +147,7 @@ select and delete.
 
 ### More in-depth examples
 
-Below are linkts to two documents containing more comprehensive examples of different functions.
+Below are links to two documents containing more comprehensive examples of different functions.
 They also contain best practices regarding performance and some possible error cases.
 
 For PyODB examples please refer to [PyODB examples](./docs/PyODBExamples.md)
@@ -195,7 +202,7 @@ When a python class is added to the PyODB schema the classes are converted to SQ
 inserted into the database schema.
 
 > IMPORTANT: If a class changes between executions the table retains the old definition.
-> It is advisable to reset the database manually in case it was persistet.
+> It is advisable to reset the database manually in case it was persisted.
 
 The UML Diagram below shows what such a conversion looks like:
 
@@ -225,7 +232,7 @@ Henceforth Origin references the original class whose type is parsed into a SQL 
 
 When a simple custom type is contained by the Origin a table is created for the sub-type as
 well. The sub-type's table uses a `_parent_` column which references the `_id_` of the
-Origin and a `_parent_table_` column referenceing the type/table-name of the Origin.
+Origin and a `_parent_table_` column referencing the type/table-name of the Origin.
 
 When an Origin instance is inserted the sub-type instance is saved in it's own table. The table
 which the instance is saved in is then referenced by the Origin's sub-type column. As example:
@@ -255,7 +262,7 @@ datatypes.
 ### Dynamic type definitions
 
 Dynamic type definitions (Union) of custom types can also be saved by PyODB.
-Only primitive datatypes must be unambigous.
+Only primitive datatypes must be unambiguous.
 
 The only exception is None. Data may always be defined with None as an option.
 
