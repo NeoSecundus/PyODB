@@ -93,7 +93,7 @@ dependencies:
     - rich==13.3.2
     - ruff==0.0.257
     - snakeviz==2.1.1
-    - tornado==6.2
+    - tornado==6.3.2
     - tox==4.4.8
     - virtualenv==20.21.0
 prefix: /usr/miniconda3/envs/pyodb
