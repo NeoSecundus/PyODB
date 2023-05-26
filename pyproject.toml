@@ -19,7 +19,6 @@ keywords = [
 ]
 dependencies = []
 license = { file = "LICENSE" }
-urls={ Changelog = "https://github.com/NeoSecundus/PyODB/blob/main/CHANGELOG.md" }
 
 [build-system]
 requires = ["hatchling"]
@@ -28,6 +27,7 @@ build-backend = "hatchling.build"
 [project.urls]
 "Homepage" = "https://github.com/NeoSecundus/PyODB"
 "Bug Tracker" = "https://github.com/NeoSecundus/PyODB/issues"
+"Changelog" = "https://github.com/NeoSecundus/PyODB/blob/main/CHANGELOG.md"
 
 [tool.ruff]
 # Which types of errors to include
