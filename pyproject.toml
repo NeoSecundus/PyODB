@@ -1,6 +1,6 @@
 [project]
 name = "pyodb"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
   { name="Nikolas Teuschl", email="nikolas.teuschl@alpha-origin.biz" },
 ]
@@ -19,6 +19,7 @@ keywords = [
 ]
 dependencies = []
 license = { file = "LICENSE" }
+urls={ Changelog = "https://github.com/NeoSecundus/PyODB/blob/main/CHANGELOG.md" }
 
 [build-system]
 requires = ["hatchling"]
