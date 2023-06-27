@@ -142,9 +142,9 @@ _parent_table_ TEXT,_expires_ REAL,"
             isolation_level="IMMEDIATE"
         )
         try:
-            conn.execute("pragma journal_mode = WAL;")
+            # conn.execute("pragma journal_mode = WAL;")
             conn.execute("pragma synchronous = normal;")
-            conn.execute("pragma page_size = 2048;")
+            conn.execute("pragma page_size = 4096;")
             conn.commit()
         except sql.OperationalError:
             # These pragmas are only for performance

@@ -119,7 +119,7 @@ class PyODB:
         return [type_ for type_ in self._schema._tables.keys() if type_.__name__ != "Table"]
 
 
-    def save_multiple(self, objs: list[object], expires: float | None = None):
+    def save_multiple(self, objs: list[Any], expires: float | None = None):
         """Saves multiple objects to the database. Does not add the type beforehand unlike `save`!
 
         Args:

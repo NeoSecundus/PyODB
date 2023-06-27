@@ -123,8 +123,8 @@ class MultiInsert:
         insert = f"INSERT INTO \"{self._table_name}\" VALUES("
         insert += "?,"*len(self._vals[0])
         insert = insert[:-1] + ");"
-        dbconn.executemany(insert, self._vals)
-        dbconn.commit()
+        with dbconn as conn:
+            conn.executemany(insert, self._vals)
 
 
     @property

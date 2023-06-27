@@ -7,7 +7,6 @@
 ![PyPI Version](https://img.shields.io/pypi/v/pyodb?color=%23a08)
 ![Supported Python Versions](https://img.shields.io/badge/Python%20Versions-3.10+-48f)
 
-
 <img src="docs/img/Logo.svg" style="margin: auto; width: 20vh" />
 
 Python Object DataBase (PyODB) is a SQLite3 ORM library aiming to be as simple to use as possible.

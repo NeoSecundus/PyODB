@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.3] - 27.06.2023
+
+### Changed
+
+- Performance improvements
+
 ## [0.1.2] - 2023-05-26
 
 ### Fixed
