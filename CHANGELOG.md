@@ -2,9 +2,14 @@
 
 ## [0.1.3] - 27.06.2023
 
+### Added
+
+- Added support for pydantic models and similar type-safety frameworks
+
 ### Changed
 
 - Performance improvements
+- Thread safety improvements
 
 ## [0.1.2] - 2023-05-26
 

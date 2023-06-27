@@ -87,28 +87,28 @@ class Assembler:
             obj = object.__new__(base_type)
             for name, type_ in table.members.items():
                 if row[name] is None:
-                    setattr(obj, name, None)
+                    obj.__dict__[name] = None
                     continue
 
                 if isinstance(type_, (GenericAlias, UnionType)):
                     type_ = cls.get_base_type(type_)
 
                 if type_ in PRIMITIVES:
-                    setattr(obj, name, type_(row[name]))
+                    obj.__dict__[name] = type_(row[name])
 
                 elif type_ in CONTAINERS:
-                    setattr(obj, name, pickle.loads(row[name]))
+                    obj.__dict__[name] = pickle.loads(row[name])
 
                 elif isinstance(type_, type):
                     if str(row[name])[:2] == "b'" or str(row[name])[:2] == "b\"":
-                        setattr(obj, name, pickle.loads(row[name]))
+                        obj.__dict__[name] = pickle.loads(row[name])
                         continue
 
                     ttype: type = locate(row[name]) # type: ignore
 
                     if ttype not in subrows:
                         subrows[ttype] = cls._get_sub_rows(tables[ttype], tables, table.fqcn)
-                    setattr(obj, name, subrows[ttype][row["_uid_"]])
+                    obj.__dict__[name] = subrows[ttype][row["_uid_"]]
             if "__odb_reassemble__" in base_type.__dict__:
                 obj.__odb_reassemble__()
             objs += [obj]
@@ -135,21 +135,21 @@ class Assembler:
         obj = object.__new__(base_type)
         for name, type_ in table.members.items():
             if row[name] is None:
-                setattr(obj, name, None)
+                obj.__dict__[name] = None
                 continue
 
             if isinstance(type_, (GenericAlias, UnionType)):
                 type_ = cls.get_base_type(type_)
 
             if type_ in PRIMITIVES:
-                setattr(obj, name, type_(row[name]))
+                obj.__dict__[name] = type_(row[name])
 
             elif type_ in CONTAINERS:
-                setattr(obj, name, pickle.loads(row[name]))
+                obj.__dict__[name] = pickle.loads(row[name])
 
             elif isinstance(type_, type):
                 if str(row[name])[:2] == "b'" or str(row[name])[:2] == "b\"":
-                    setattr(obj, name, pickle.loads(row[name]))
+                    obj.__dict__[name] = pickle.loads(row[name])
                     continue
 
                 ttype: type = locate(row[name]) # type: ignore
@@ -157,7 +157,7 @@ class Assembler:
                 subrow: sql.Row = subtable.dbconn.execute(
                     f"SELECT * FROM \"{subtable.fqcn}\" WHERE _parent_ = '{row['_uid_']}'"
                 ).fetchone()
-                setattr(obj, name, cls.assemble_type(ttype, tables, subrow))
+                obj.__dict__[name] = cls.assemble_type(ttype, tables, subrow)
         if "__odb_reassemble__" in base_type.__dict__:
             obj.__odb_reassemble__()
         return obj

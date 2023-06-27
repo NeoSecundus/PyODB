@@ -1,6 +1,8 @@
 from random import randint
+
+from pydantic import BaseModel
 from test.test_models.primitive_models import (PrimitiveBasic, PrimitiveContainer,
-                                               PrimitiveIllegal1, get_random_text)
+                                               PrimitiveIllegal1, PrimitivePydantic, get_random_text)
 from typing import Any
 
 
@@ -84,6 +86,18 @@ class ComplexContainer:
             "complex_list":  list | None,
             "complex_dict": dict,
             "multicomplex_dict": dict
+        }
+
+
+class ComplexPydantic(BaseModel):
+    child: PrimitivePydantic
+    test_str: str
+
+    @staticmethod
+    def get_members() -> dict:
+        return {
+            "child": PrimitivePydantic,
+            "test_str": str
         }
 
 

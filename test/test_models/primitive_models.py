@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from random import choice, randint, random
 
 
@@ -132,6 +133,22 @@ listing BLOB NOT NULL,pset BLOB NOT NULL,ptuple BLOB,dictionary BLOB NOT NULL);"
         if isinstance(__o, PrimitiveContainer):
             return self.listing == __o.listing
         return False
+
+
+class PrimitivePydantic(BaseModel):
+    test_str: str
+    test_float: float
+    test_number: int
+    test_bool: bool
+
+    @staticmethod
+    def get_members() -> dict:
+        return {
+            "test_str": str,
+            "test_float": float,
+            "test_number": int,
+            "test_bool": bool
+        }
 
 
 class ReassemblyTester:

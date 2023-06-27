@@ -1,5 +1,6 @@
 from random import randint
-from test.test_models.primitive_models import PrimitiveBasic, get_random_text
+from test.test_models.complex_models import ComplexPydantic
+from test.test_models.primitive_models import PrimitiveBasic, PrimitivePydantic, get_random_text
 
 
 class HighComplexL1:
@@ -7,6 +8,7 @@ class HighComplexL1:
     basic: PrimitiveBasic
     basiclist: list[PrimitiveBasic]
     reassembled = False
+    pyd: ComplexPydantic
 
 
     def __odb_reassemble__(self):
@@ -18,6 +20,15 @@ class HighComplexL1:
         self.basiclist = [PrimitiveBasic() for _ in range(randint(3, 10))]
         self.basic = PrimitiveBasic()
         self.reassembled = False
+        self.pyd = ComplexPydantic(
+            child=PrimitivePydantic(
+                test_bool=False,
+                test_float=9.25,
+                test_str="Test Child",
+                test_number=50
+            ),
+            test_str="Test Parent"
+        )
 
 
     def __eq__(self, __o: object) -> bool:

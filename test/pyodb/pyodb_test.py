@@ -3,9 +3,9 @@ import random
 import threading
 from logging import Logger
 from multiprocessing import Process
-from test.test_models.complex_models import ComplexBasic, ComplexMulti
+from test.test_models.complex_models import ComplexBasic, ComplexMulti, ComplexPydantic
 from test.test_models.high_complex_models import HighComplexL3
-from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
+from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer, PrimitivePydantic
 from time import sleep, time
 from unittest import TestCase
 
@@ -80,6 +80,7 @@ class PyODBTest(TestCase):
         del self.pyodb
         self.pyodb = PyODB(sharding=True)
         self.pyodb.add_type(ComplexBasic)
+        self.pyodb.add_type(ComplexPydantic)
         self.pyodb.persistent = True
         del self.pyodb
 
@@ -87,18 +88,23 @@ class PyODBTest(TestCase):
         self.assertIn(ComplexBasic, self.pyodb._schema._tables)
         self.assertIn(PrimitiveBasic, self.pyodb._schema._tables)
         self.assertIn(PrimitiveContainer, self.pyodb._schema._tables)
+        self.assertIn(ComplexPydantic, self.pyodb._schema._tables)
+        self.assertIn(PrimitivePydantic, self.pyodb._schema._tables)
         del self.pyodb
 
         # Test Unified Schema
         self.pyodb = PyODB()
         self.pyodb.persistent = True
         self.pyodb.add_type(ComplexBasic)
+        self.pyodb.add_type(ComplexPydantic)
         del self.pyodb
 
         self.pyodb = PyODB()
         self.assertIn(ComplexBasic, self.pyodb._schema._tables)
         self.assertIn(PrimitiveBasic, self.pyodb._schema._tables)
         self.assertIn(PrimitiveContainer, self.pyodb._schema._tables)
+        self.assertIn(ComplexPydantic, self.pyodb._schema._tables)
+        self.assertIn(PrimitivePydantic, self.pyodb._schema._tables)
         del self.pyodb
 
         self.pyodb = PyODB()
@@ -115,13 +121,14 @@ class PyODBTest(TestCase):
 
 
     def test_highly_complex_object(self):
-        self.pyodb.max_depth=2
+        self.pyodb.max_depth=5
         self.pyodb.add_type(HighComplexL3)
         hc = HighComplexL3()
         self.pyodb.save(hc)
         self.pyodb.save_multiple([HighComplexL3() for _ in range(9)])
         res = self.pyodb.select(HighComplexL3).first()
         self.assertEqual(hc, res)
+        self.assertEqual(hc.high1.pyd.child.test_str, "Test Child")
 
 
 class ThreadingTest(TestCase):

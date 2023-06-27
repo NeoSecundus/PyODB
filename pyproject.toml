@@ -1,6 +1,6 @@
 [project]
 name = "pyodb"
-version = "0.1.2"
+version = "0.1.3"
 authors = [
   { name="Nikolas Teuschl", email="nikolas.teuschl@alpha-origin.biz" },
 ]
