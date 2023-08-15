@@ -521,7 +521,7 @@ class Select(_Query):
             return None
 
         return Assembler.assemble_type(
-            self._table.base_type, self._tables, self._compile().fetchone()
+            self._table.base_type, self._tables, row
         )
 
 
