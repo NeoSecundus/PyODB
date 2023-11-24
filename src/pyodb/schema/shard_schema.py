@@ -21,7 +21,7 @@ class ShardSchema(BaseSchema):
         self._tables[base_type].is_parent = True
 
 
-    def load_existing(self):
+    def load_existing(self) -> None:
         self.add_type(Table)
         old_tables: list[Table] = self.select(Table).all()
         for old_table in old_tables:
@@ -29,7 +29,7 @@ class ShardSchema(BaseSchema):
             self._tables[old_table.base_type].is_parent = old_table.is_parent
 
 
-    def _save_schema(self):
+    def _save_schema(self) -> None:
         self.add_type(Table)
         self.delete(Table).commit()
         self.max_depth = 0

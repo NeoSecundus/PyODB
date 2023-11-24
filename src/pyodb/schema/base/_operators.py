@@ -3,7 +3,7 @@ import sqlite3 as sql
 from pydoc import locate
 from time import time
 from types import GenericAlias, NoneType, UnionType
-from typing import Any
+from typing import Any, Callable, Coroutine, Generator
 
 from pyodb.error import DisassemblyError, MixedTypesError
 from pyodb.schema.base._table import Table
@@ -11,7 +11,7 @@ from pyodb.schema.base._type_defs import BASE_TYPES, CONTAINERS, PRIMITIVES
 
 
 class Assembler:
-    last_clean = 0
+    last_clean: float = 0
     @classmethod
     def _get_sub_rows(
             cls,
@@ -46,7 +46,7 @@ class Assembler:
 
 
     @classmethod
-    def get_base_type(cls, type_: UnionType) -> type:
+    def get_base_type(cls, type_: UnionType | GenericAlias) -> type:
         """
         Given a UnionType, this method returns the most basic type.
 
@@ -84,7 +84,7 @@ class Assembler:
         objs = []
         subrows: dict[type, dict[str, object]] = {}
         for row in rows:
-            obj = object.__new__(base_type)
+            obj: Any = object.__new__(base_type)
             for name, type_ in table.members.items():
                 if row[name] is None:
                     obj.__dict__[name] = None
@@ -132,7 +132,7 @@ class Assembler:
             DBConnError: In case a sub-table does not have a valid database connection.
         """
         table = tables[base_type]
-        obj = object.__new__(base_type)
+        obj: Any = object.__new__(base_type)
         for name, type_ in table.members.items():
             if row[name] is None:
                 obj.__dict__[name] = None
@@ -181,7 +181,7 @@ class Disassembler:
             MixedTypesError: If the input type is a UnionType with mixed primitive and custom type
             annotations or multiple primitives.
         """
-        tables = {}
+        tables: dict = {}
         if any([t in BASE_TYPES for t in type_.__args__]):
             raise MixedTypesError(
                 f"Cannot save object with mixed primitive and custom type annotations \
@@ -208,7 +208,7 @@ or multiple primitives! Got: {type_}"
                     type_ = arg.__origin__ | None
                     break
 
-        if isinstance(type_, GenericAlias):
+        if hasattr(type_, "__origin__"):
             type_ = type_.__origin__
 
         return type_
@@ -235,31 +235,30 @@ or multiple primitives! Got: {type_}"
             raise DisassemblyError("'Any', 'None' and Primitive types are not supported!")
 
         if not isinstance(obj_type, type):
-            raise DisassemblyError("Passed argument must be a type!")
+            raise DisassemblyError(f"Passed argument must be a type! Got: {obj_type}")
 
-        tables = {obj_type: {}}
+        tables: dict = {obj_type: {}}
 
-        if "__odb_members__" in obj_type.__annotations__:
-            members = getattr(obj_type, "__odb_members__")
+        if hasattr(obj_type, "__odb_members__"):
+            members: dict[str, type|UnionType|GenericAlias] = getattr(obj_type, "__odb_members__")
         else:
-            members: dict[str, type | UnionType | GenericAlias] = {
+            members = {
                 key: type_
                 for key, type_
                 in obj_type.__annotations__.items()
-                if key[:2] != "__"
+                if key[:2] != "__" and type_ not in (Callable, Coroutine, Generator)
             }
 
         for key, type_ in members.items():
             type_ = cls._break_down_type(type_)
 
             tables[obj_type][key] = type_
-            if type_ is type:
+            if type_ in BASE_TYPES:
                 continue
 
-            if type_ not in BASE_TYPES:
-                if isinstance(type_, UnionType):
-                    tables |= cls._disassemble_union_type(type_)
-                else:
-                    tables |= cls.disassemble_type(type_)
+            if isinstance(type_, UnionType):
+                tables |= cls._disassemble_union_type(type_)
+            elif isinstance(type_, (type, GenericAlias)) and hasattr(type_, "__annotations__"):
+                tables |= cls.disassemble_type(type_)
 
         return tables

@@ -1,3 +1,4 @@
+from types import UnionType
 from pydantic import BaseModel
 from random import choice, randint, random
 
@@ -9,7 +10,7 @@ def get_random_text(limit: int = 100) -> str:
 
 
 class PrimitiveBasic:
-    __odb_members__: dict[str, type] = {
+    __odb_members__: dict[str, type | UnionType] = {
         "integer": int,
         "number": float | None,
         "text": str,
@@ -95,7 +96,7 @@ class PrimitiveContainer:
         self.pset.union([get_random_text() for _ in range(randint(1, 10))])
         self.pset.union([randint(0, 1) == 1 for _ in range(randint(1, 10))])
 
-        self.ptuple = tuple([randint(-10, 10), (random()-0.5) * 20, get_random_text(), randint(0, 1) == 1])
+        self.ptuple = tuple([randint(-10, 10), (random()-0.5) * 20, get_random_text(), randint(0, 1) == 1]) # type: ignore
 
         self.dictionary = {}
         self.dictionary |= {get_random_text(10): randint(-1000,1000) for _ in range(randint(1, 10))}

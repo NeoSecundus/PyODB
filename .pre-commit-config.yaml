@@ -11,6 +11,16 @@ repos:
     -   id: check-added-large-files
         exclude: (docs/module_docs|src/api/static/img)
     -   id: check-case-conflict
+# MyPy pre-commit hook
+-   repo: local
+    hooks:
+    -   id: mypy
+        name: Running MyPy Type Check
+        entry: mypy
+        language: system
+        types: [python]
+        args: []
+        exclude: "test"
 # Ruff pre-commit hook
 -   repo: local
     hooks:

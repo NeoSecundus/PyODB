@@ -2,7 +2,7 @@ import pickle
 import sqlite3.dbapi2 as sql
 from pydoc import locate
 from time import time
-from types import GenericAlias, NoneType, UnionType
+from types import GenericAlias, UnionType
 from typing import Any
 
 from pyodb._util import generate_uid
@@ -36,7 +36,7 @@ class Insert:
         self._uid = generate_uid()
         if expires and expires <= time():
             raise ExpiryError("expires must be greater than the current timestamp")
-        self._vals = [parent, parent_table, expires]
+        self._vals: list = [parent, parent_table, expires]
 
     def add_val(self, val: object) -> None:
         """Add a value to the list of values to be inserted into the table.
@@ -192,7 +192,7 @@ class _Query:
             BadTypeError: If the passed argument has an invalid type.
         """
         for key, val in kwargs.items():
-            if not isinstance(val, (int, float, str, bool, NoneType)):
+            if val and not isinstance(val, (int, float, str, bool)):
                 raise BadTypeError(
                     f"Values must be int, float, str or bool for == check! Got: {type(val)}"
                 )
@@ -220,7 +220,7 @@ class _Query:
             BadTypeError: If the passed argument has an invalid type.
         """
         for key, val in kwargs.items():
-            if not isinstance(val, (int, float, str, bool, NoneType)):
+            if val and not isinstance(val, (int, float, str, bool)):
                 raise BadTypeError(
                     f"Values must be int, float, str or bool for != check! Got: {type(val)}"
                 )
@@ -548,7 +548,7 @@ class Select(_Query):
         return self._compile("COUNT(*)").fetchone()[0]
 
 
-    def _compile(self, get_what: str = "*") -> sql.Cursor:
+    def _compile(self, get_what: str = "*") -> sql.Cursor: # type: ignore
         """
         Compiles and executes the SELECT query and returns a cursor object.
 

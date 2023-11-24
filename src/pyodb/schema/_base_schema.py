@@ -109,8 +109,7 @@ class BaseSchema:
 
 
     def get_parent(self, base_type: type) -> type | None:
-        """
-        Returns the parent type for the given base_type, if any.
+        """Returns the parent type for the given base_type, if any.
 
         Args:
             base_type (type): The base type to get the parent for
@@ -144,8 +143,7 @@ class BaseSchema:
             parent: Insert | None = None,
             depth: int = 0
         ):
-        """
-        Inserts an object into the database.
+        """Inserts an object into the database.
 
         Args:
             obj (object): The object to be inserted.
@@ -169,20 +167,19 @@ class BaseSchema:
         else:
             inserter = Insert(table.fqcn, None, None, expires)
 
-        for member in table.members.keys():
-            member = getattr(obj, member)
-            if member and type(member) not in BASE_TYPES:
+        for key, member_type in table.members.items():
+            member = getattr(obj, key)
+            if member and member_type not in BASE_TYPES:
                 if depth >= self._max_depth:
                     inserter.add_val(pickle.dumps(member))
                     continue
                 self.insert(member, expires, inserter, depth+1)
-            inserter.add_val(member)
+            inserter.add_val(member if isinstance(member, member_type) else member_type(member))
         inserter.commit(table.dbconn)
 
 
     def insert_many(self, objs: list, expires: float | None):
-        """
-        Inserts a list of objects into the database. Objects must all have the same type.
+        """Inserts a list of objects into the database. Objects must all have the same type.
 
         Args:
             objs (list): The list of objects to be inserted.
@@ -227,20 +224,20 @@ class BaseSchema:
 
 
     def _insert_many(self, objs: list[tuple[object, Insert]], expires: float | None, depth: int):
+        """Inserts multiple objects into the database.
+
+        If an object has members that are also objects, this method will recursively insert them as
+        well, up to the maximum depth allowed by the schema. Then pickling is used.
+
+        Args:
+            objs (list[tuple[object, Insert]]): A list of objects and their corresponding parent
+            insert statements.
+            expires (float | None): The expiration time for the objects.
+            depth (int): The current recursion depth of the object hierarchy.
+
+        Raises:
+            DBConnError: If the current table does not have a valid database connection.
         """
-    Inserts multiple objects into the database.
-    If an object has members that are also objects, this method will recursively insert them as
-    well, up to the maximum depth allowed by the schema. Then pickling is used.
-
-    Args:
-        objs (list[tuple[object, Insert]]): A list of objects and their corresponding parent insert
-        statements.
-        expires (float | None): The expiration time for the objects.
-        depth (int): The current recursion depth of the object hierarchy.
-
-    Raises:
-        DBConnError: If the current table does not have a valid database connection.
-    """
         base_type = type(objs[0][0])
 
         table = self._tables[base_type]
@@ -270,9 +267,8 @@ class BaseSchema:
 
 
     def select(self, type_: type) -> Select:
-        """
-        Returns a `Select` object for the given type. The `Select` object can be used to query the
-        database and retrieve objects of the given type.
+        """Returns a `Select` object for the given type. The `Select` object can be used to query
+        the database and retrieve objects of the given type.
 
         Args:
             type_ (type): The type of the object to build the query for.
@@ -289,8 +285,7 @@ class BaseSchema:
 
 
     def delete(self, type_: type) -> Delete:
-        """
-        Returns a `Delete` object for the given type. The `Delete` object can be used to remove
+        """Returns a `Delete` object for the given type. The `Delete` object can be used to remove
         objects of the given type from the database.
 
         Args:

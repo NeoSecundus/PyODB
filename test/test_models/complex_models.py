@@ -1,9 +1,11 @@
+from decimal import Decimal
 from random import randint
+import random
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from test.test_models.primitive_models import (PrimitiveBasic, PrimitiveContainer,
                                                PrimitiveIllegal1, PrimitivePydantic, get_random_text)
-from typing import Any
+from typing import Any, Callable, ClassVar, Coroutine
 
 
 class ComplexBasic:
@@ -90,15 +92,52 @@ class ComplexContainer:
 
 
 class ComplexPydantic(BaseModel):
-    child: PrimitivePydantic
-    test_str: str
+    str_field: str = Field(default="Test")
+    flt_field: float = Field(default=random.random())
+    int_field: int = Field(default=random.randint(-1000, 1000))
+    bol_field: bool = Field(default=False)
+    sub_field: PrimitivePydantic = Field(default=PrimitivePydantic(
+        test_str="Tester",
+        test_float=1.1,
+        test_number=100,
+        test_bool=True
+    ))
 
     @staticmethod
     def get_members() -> dict:
         return {
-            "child": PrimitivePydantic,
-            "test_str": str
+            "str_field": str,
+            "flt_field": float,
+            "int_field": int,
+            "bol_field": bool,
+            "sub_field": PrimitivePydantic,
         }
+
+
+async def _my_async() -> str:
+    return "Kill me pls"
+
+
+class ComplexTypingModel:
+    __odb_members__ = {
+        "obj_decimal": float,
+        "obj_int": int,
+    }
+
+    cls_int: ClassVar[str] = "This is a class variable"
+    cls_decimal: ClassVar[Decimal] = Decimal(random.random() * 100)
+    obj_decimal: Decimal
+    obj_int: int
+    obj_func: Callable = lambda: "help me"
+    obj_coroutine: Coroutine = _my_async()
+
+    def __init__(self) -> None:
+        self.obj_decimal = Decimal(random.random() * 100)
+        self.obj_int = random.randint(-1000, 1000)
+
+
+    def __odb_reassemble__(self):
+        self.obj_decimal = Decimal(self.obj_decimal)
 
 
 class ComplexIllegal1:

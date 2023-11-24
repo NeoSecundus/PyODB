@@ -3,7 +3,7 @@ import random
 import threading
 from logging import Logger
 from multiprocessing import Process
-from test.test_models.complex_models import ComplexBasic, ComplexMulti, ComplexPydantic
+from test.test_models.complex_models import ComplexBasic, ComplexMulti, ComplexPydantic, ComplexTypingModel
 from test.test_models.high_complex_models import HighComplexL3
 from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer, PrimitivePydantic
 from time import sleep, time
@@ -128,12 +128,12 @@ class PyODBTest(TestCase):
         self.pyodb.save_multiple([HighComplexL3() for _ in range(9)])
         res = self.pyodb.select(HighComplexL3).first()
         self.assertEqual(hc, res)
-        self.assertEqual(hc.high1.pyd.child.test_str, "Test Child")
+        self.assertEqual(hc.high1.pyd.sub_field.test_str, "Tester")
 
 
 class ThreadingTest(TestCase):
     def job(self, sharding: bool, pyodb: PyODB | None = None):
-        random.seed = time() - int(time()-0.5)
+        random.seed = time() - int(time()-0.5) # type: ignore
         if pyodb is None:
             pyodb = PyODB(max_depth=3, persistent=True, sharding=sharding)
         sleep(random.random()/10 + 0.05)
@@ -155,7 +155,7 @@ class ThreadingTest(TestCase):
 
 
     def cache_job(self, sharding: bool):
-        random.seed = time() - int(time()-0.5)
+        random.seed = time() - int(time()-0.5) # type: ignore
         cache = PyODBCache(persistent=True, sharding=sharding)
         sleep(random.random()/10 + 0.05)
 
@@ -251,6 +251,7 @@ class PyODBCacheTest(TestCase):
     def setUp(self) -> None:
         self.cache = PyODBCache()
         self.cache.add_cache("test", lambda: [PrimitiveBasic() for _ in range(10)], PrimitiveBasic)
+        self.cache.add_cache("test2", lambda: [ComplexTypingModel() for _ in range(5)], ComplexTypingModel)
         return super().setUp()
 
 
@@ -259,21 +260,26 @@ class PyODBCacheTest(TestCase):
         return super().tearDown()
 
 
-    def test_add_load_cache(self):
+    def test_add_load_cache(self) -> None:
         data: list[PrimitiveBasic] = self.cache.get_data("test")
         self.assertEqual(len(data), 10)
         self.assertEqual(data[0].classmember, "cm")
 
-        data: list[PrimitiveBasic] = self.cache.get_data("test")
+        data = self.cache.get_data("test")
         self.assertEqual(len(data), 10)
         self.assertEqual(data[0].classmember, "cm")
 
         before = self.cache.caches["test"].expires
         self.cache.caches["test"].expires = 0
-        data: list[PrimitiveBasic] = self.cache.get_data("test")
+        data = self.cache.get_data("test")
         self.assertEqual(len(data), 10)
         self.assertEqual(data[0].classmember, "cm")
         self.assertEqual(before, self.cache.caches["test"].expires)
+
+        data2: list[ComplexTypingModel] = self.cache.get_data("test2")
+        self.assertEqual(len(data2), 5)
+        self.assertLessEqual(data2[0].obj_decimal, 100)
+        self.assertGreaterEqual(data2[0].obj_decimal, 0)
 
 
     def test_get_caches(self):

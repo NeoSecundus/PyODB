@@ -232,8 +232,8 @@ class PyODBCache:
             self.data_type = data_type
             self.lifetime = lifetime
             self.dataclass = dataclass
-            self.data = []
-            self.expires = 0
+            self.data: list = []
+            self.expires: float = 0
 
 
         def get_data(self) -> list | None:
@@ -380,6 +380,8 @@ class PyODBCache:
 
         try:
             data = cache.data_func(*args, **kwargs)
+            if not data:
+                return []
             expires = time() + cache.lifetime
             self.pyodb.save_multiple([cache.dataclass(dp, expires) for dp in data], expires)
             cache.set_data(data, expires)

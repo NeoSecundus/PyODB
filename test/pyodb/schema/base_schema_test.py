@@ -1,12 +1,11 @@
 import sqlite3 as sql
 from pathlib import Path
-from test.test_models.complex_models import ComplexBasic, ComplexContainer, ComplexMulti
-from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
+from test.test_models.complex_models import ComplexBasic, ComplexContainer, ComplexMulti, ComplexPydantic, ComplexTypingModel
+from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer, PrimitivePydantic
 from unittest import TestCase
 
 from pyodb.error import DisassemblyError, ParentError, UnknownTypeError
 from pyodb.schema._base_schema import BaseSchema
-from pyodb.schema.base._operators import Disassembler
 from pyodb.schema.base._sql_builders import Delete, Select
 from pyodb.schema.unified_schema import UnifiedSchema
 
@@ -29,10 +28,12 @@ class BaseSchemaTest(TestCase):
 
     def test_is_known_type(self):
         self.schema.add_type(ComplexBasic)
+        self.schema.add_type(ComplexPydantic)
 
         self.assertTrue(self.schema.is_known_type(ComplexBasic))
         self.assertTrue(self.schema.is_known_type(PrimitiveBasic))
         self.assertFalse(self.schema.is_known_type(ComplexMulti))
+        self.assertTrue(self.schema.is_known_type(PrimitivePydantic))
 
 
     def test_not_implemented(self):
@@ -89,32 +90,39 @@ class BaseSchemaTest(TestCase):
         self.assertRaises(UnknownTypeError, self.schema.remove_type, ComplexMulti)
 
 
-    def test_insert(self):
+    def test_insert(self) -> None:
         dbconn = sql.connect(".pyodb/pyodb.db")
 
         self.schema.add_type(ComplexBasic)
         self.schema.add_type(ComplexMulti)
+        self.schema.add_type(ComplexTypingModel)
 
         self.schema.insert(ComplexMulti(), None)
         self.schema.insert(ComplexBasic(), None)
         self.schema.insert(ComplexBasic(), None)
+        self.schema.insert(ComplexTypingModel(), None)
 
         count: int = dbconn.execute(
             "SELECT COUNT(*) FROM \"test.test_models.complex_models.ComplexBasic\";"
         ).fetchone()[0]
         self.assertEqual(count, 2)
 
-        count1: int = dbconn.execute(
+        count = dbconn.execute(
+            "SELECT COUNT(*) FROM \"test.test_models.complex_models.ComplexTypingModel\";"
+        ).fetchone()[0]
+        self.assertEqual(count, 1)
+
+        count = dbconn.execute(
             "SELECT COUNT(*) FROM \"test.test_models.primitive_models.PrimitiveBasic\";"
         ).fetchone()[0]
-        self.assertIn(count1, (3,2))
+        self.assertIn(count, (3,2))
 
         count2: int = dbconn.execute(
             "SELECT COUNT(*) FROM \"test.test_models.primitive_models.PrimitiveContainer\";"
         ).fetchone()[0]
         self.assertIn(count2, (3,2))
 
-        self.assertEqual(count1 + count2, 5)
+        self.assertEqual(count + count2, 5)
 
 
     def test_insert_many(self):
