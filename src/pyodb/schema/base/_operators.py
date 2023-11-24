@@ -211,6 +211,9 @@ or multiple primitives! Got: {type_}"
         if hasattr(type_, "__origin__"):
             type_ = type_.__origin__
 
+        if type_ is Any:
+            raise MixedTypesError("Type of class member cannot be 'Any'!")
+
         return type_
 
 

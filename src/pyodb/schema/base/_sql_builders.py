@@ -125,6 +125,7 @@ class MultiInsert:
         insert = insert[:-1] + ");"
         with dbconn as conn:
             conn.executemany(insert, self._vals)
+            conn.commit()
 
 
     @property

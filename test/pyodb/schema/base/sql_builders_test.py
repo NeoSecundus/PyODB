@@ -1,7 +1,7 @@
 from pathlib import Path
 from test.test_models.complex_models import ComplexMulti
 from test.test_models.primitive_models import PrimitiveBasic, PrimitiveContainer
-from time import time
+from time import sleep, time
 from unittest import TestCase
 
 from pyodb.error import BadTypeError, ExpiryError, ParentError, QueryError
