@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.5] - 24.11.2023
+
+**Added**
+
+- Added support for special types like:
+  - Callables
+  - Generators
+  - Decimal and similar
+  - Coroutines
+
+**Fixed**
+
+- Database Readonly Error in some special cases. I hope I got all of them.
+
 ## [0.1.4] - 15.08.2023
 
 **Fixed**
